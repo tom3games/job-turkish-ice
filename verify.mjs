@@ -159,6 +159,76 @@ await t('千手観音: 空いている場所へ逃げればかわせる、狙わ
   })
   expect(r.t1 === 1 && r.done === 'stolen', r); return r
 })
+const FRESH = `TI.dbg.start(4); TI.dbg.pause(true); TI.S.tut = -1`
+const RDY = `{ let n = 0; while (TI.CUR.st !== 'ready' && n++ < 400) TI.dbg.step(1) }`
+await t('見物の人だかり: かわすほど増え、チップに倍率。渡すと明細に「見物客ボーナス」', async () => {
+  const r = await ev(p, ([F, R]) => { eval(F); TI.dbg.skipTo(4); eval(R); const n0 = TI.dbg.crowd(); for (let k = 0; k < 3; k++) TI.dbg.dodge(false); TI.dbg.step(120); const n3 = TI.dbg.crowd(), mult = TI.dbg.crowdMult(), cb = TI.CUR.crowdBonus; TI.dbg.give(); TI.dbg.step(30); const row = TI.calcResult().slip.pay.find(x => /見物客/.test(x.label)); return { n0, n3, mult, cb, crowd: TI.S.money.crowd, row } }, [FRESH, RDY])
+  expect(r.n0 === 0 && r.n3 >= 3 && r.mult > 1.25 && r.cb > 0 && r.crowd === r.cb && r.row && r.row.yen === r.crowd, r); return r
+})
+await t('見物の人だかり: 次の客にも残り、取られるとサッと散る（ブーイング）', async () => {
+  const r = await ev(p, R => { TI.dbg.step(200); eval(R); const keep = TI.dbg.crowd(); const b0 = TI.Snd.played.boo || 0; TI.dbg.resolve(); TI.dbg.step(5); const done = TI.dbg.cust().done; TI.dbg.step(240); return { keep, done, after: TI.dbg.crowd(), boo: (TI.Snd.played.boo || 0) - b0 } }, RDY)
+  expect(r.keep >= 3 && r.done === 'stolen' && r.after === 0 && r.boo === 1, r); return r
+})
+await t('見物人が10人いても fps が落ちすぎない（GPU を使うヘッドレス・0人の85%以上か50以上）', async () => {
+  const gb = await chromium.launch({ channel: 'chromium', args: ['--mute-audio', '--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] })
+  const gc = await gb.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 }); await muteContext(gc); const gp = await gc.newPage()
+  await gp.goto(URL0); await gp.waitForFunction(() => window.__tiReady && TI.charsReady, null, { timeout: 15000 })
+  const fps = () => gp.evaluate(() => new Promise(res => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 2500) requestAnimationFrame(f); else res(Math.round(n / 2.5)) }; requestAnimationFrame(f) }))
+  await gp.evaluate(() => { TI.dbg.start(4); TI.S.tut = -1; TI.dbg.skipTo(4); TI.CUR.ph = 'wait'; TI.CUR.pt = 999 }); await gp.waitForTimeout(1200)
+  const a = await fps()
+  await gp.evaluate(() => { TI.dbg.addCrowd(10); TI.CUR.pt = 999 }); await gp.waitForTimeout(3000)
+  const b2 = await fps(), n = await gp.evaluate(() => TI.dbg.crowd()); await gb.close()
+  expect(n === 10 && (b2 >= a * 0.85 || b2 >= 50), { a, b: b2, n }); return { fps0: a, fps10: b2, n }
+})
+await t('フェイント: 最初の伸びに釣られると本物が速くなって取られやすい。合図（肩が沈む・よっ）を待てばかわせる', async () => {
+  const run = (react) => ev(p, ([F, R, react]) => {
+    eval(F); TI.dbg.skipTo(4); eval(R); const c = TI.CUR
+    const r0 = TI.S.rand; TI.S.rand = () => 0; c.ph = 'wind'; c.pt = 0.01; c.feinted = false; c.aim = ['C']; TI.dbg.step(2); TI.S.rand = r0
+    const feint = c.ph === 'feint', tellAtFeint = c.tell
+    if (react) { TI.dbg.step(4); TI.dbg.move('U') }
+    let n = 0; while (c.ph !== 'lunge' && n++ < 300) TI.dbg.step(1)
+    const tell = c.tell > 0, pdur = c.pdur, hup0 = TI.Snd.played.hup
+    for (let i = 0; i < 16; i++) TI.dbg.step(1)          // 0.27秒で反応
+    if (c.ph === 'lunge') TI.dbg.move(TI.dbg.dodgeDir())
+    TI.dbg.resolve(); TI.dbg.step(5)
+    return { feint, tellAtFeint, tell, pdur: +pdur.toFixed(2), fooled: c.fooled, done: c.done || 'dodged', teases: c.teases }
+  }, [FRESH, RDY, react])
+  const a = await run(true), b = await run(false)
+  expect(a.feint && b.feint && !a.tellAtFeint && a.tell && b.tell && a.fooled && !b.fooled && a.pdur < b.pdur * 0.7 && a.done === 'stolen' && b.teases === 1, { a, b }); return { reacted: a.done, waited: b.done + ' teases=' + b.teases }
+})
+await t('フェイントは前半ほぼ無く、後半ほど増える', async () => { const r = await ev(p, () => { const K = TI.D.FEINT; return K }); expect(r.from >= 3 && r.p1 > r.p0, r); return r })
+await t('両手で来るヤンキー（後半）: 1本目だけかわすと2本目に取られる。両方かわすと「両手かわし」1.5倍', async () => {
+  const run = (both) => ev(p, ([F, R, both]) => {
+    eval(F); TI.dbg.skipTo(7); eval(R); const c = TI.CUR
+    const r0 = TI.S.rand; TI.S.rand = () => 0.99; TI.dbg.toLunge(); TI.S.rand = r0
+    c.dbl = true; c.second = false
+    TI.dbg.move(TI.dbg.dodgeDir()); let n = 0; while (!c.second && c.ph === 'lunge' && n++ < 200) TI.dbg.step(1)
+    const second = c.second
+    if (both) TI.dbg.move(TI.dbg.dodgeDir())
+    TI.dbg.resolve(); TI.dbg.step(5)
+    return { second, done: c.done || 'dodged', tip: c.tip }
+  }, [FRESH, RDY, both])
+  const a = await run(false), b = await run(true)
+  expect(a.second && a.done === 'stolen' && b.done === 'dodged' && b.tip === Math.round(230 * 1.5), { a, b }); return { one: a.done, both: b.tip }
+})
+await t('カップル: 彼女は笑い、彼氏のイライラが先に限界（合図→胸ぐら・クリーニング代）', async () => {
+  const r = await ev(p, ([F, R]) => { eval(F); TI.dbg.skipTo(8); eval(R); const c = TI.CUR; c.bfLeft = c.bfPat = 2; c.left = c.pat = 5; const seen = []; while (c.st === 'ready' && c.teases < 6) { TI.dbg.dodge(false); seen.push([c.lastLine, c.bf.lastLine, c.bf.emoK]) } return { seen, done: c.done, pen: TI.S.money.pen.clean, kick: !!TI.S.kick, ded: TI.calcResult().slip.ded.filter(d => d.yen > 0).map(d => d.label) } }, [FRESH, RDY])
+  const warn = r.seen.find(s => s[2] === 'anger')
+  expect(r.done === 'broke' && r.pen === 1 && warn && /次やったら/.test(warn[1]) && /彼女/.test(r.seen.at(-1)[1]) && r.ded.includes('クリーニング代'), r); return r.seen.map(s => s[1])
+})
+await t('カップル: 彼氏の限界の合図で渡すと二人分のチップ（ちょうどいい手当も二人分）', async () => {
+  const r = await ev(p, ([F, R]) => { eval(F); TI.dbg.skipTo(8); eval(R); const c = TI.CUR; c.bfLeft = c.bfPat = 2; c.left = c.pat = 5; TI.dbg.dodge(false); TI.dbg.dodge(false); const one = c.tip, cb = c.crowdBonus; TI.dbg.give(); TI.dbg.step(30); return { one, cb, tip: c.tip, done: c.done, just: TI.S.money.just, crowd: TI.S.money.crowd } }, [FRESH, RDY])
+  expect(r.done === 'given' && r.tip === (r.one + 300) * 2 && r.just === 2 && r.crowd === r.cb * 2, r); return r
+})
+const breakAt = (i, setup = '') => ev(p, ([F, R, i, setup]) => { eval(F); TI.dbg.skipTo(i); eval(R); const c = TI.CUR; eval(setup); c.left = 0; if (c.bf) c.bfLeft = 9; const sign0 = 0; TI.dbg.dodge(false); TI.dbg.step(60); return { k: c.k, done: c.done, pen: { ...TI.S.money.pen }, kick: TI.S.lastKick, sign: TI.S.mode && document.querySelector('canvas') && 0, ded: TI.calcResult().slip.ded.filter(d => d.yen > 0).map(d => d.label + d.yen) } }, [FRESH, RDY, i, setup])
+await t('キレた時のマイナス: ヤンキーは屋台を蹴って看板が落ちる「看板の修理代」', async () => { const r = await breakAt(3); const fell = await ev(p, () => TI.signVisible()); expect(r.done === 'broke' && r.pen.sign === 1 && fell && r.ded.some(d => /看板の修理代2000/.test(d)), { r, fell }); return r.ded })
+await t('キレた時のマイナス: 子どもが泣くとお母さんが来てクレーム「おわびのアイスもう1個」', async () => { const r = await breakAt(1); const mom = await ev(p, () => !!(TI.CUR && TI.CUR.mom) || TI.LINE.length >= 0 && [...document.querySelectorAll('#fx .sb')].some(e => /うちの子/.test(e.textContent))); expect(r.done === 'broke' && r.pen.mom === 1 && mom && r.ded.some(d => /お母さんのクレーム500/.test(d)), { r, mom }); return r.ded })
+await t('キレた時のマイナス: ふつうの客は★1の口コミ。次の客の我慢が1減る', async () => {
+  const r = await breakAt(8); const nx = await ev(p, () => { TI.dbg.step(200); let n = 0; while ((!TI.CUR || TI.CUR.st !== 'ready') && n++ < 400) TI.dbg.step(1); TI.CUR.ph = 'wait'; TI.CUR.pt = 99; TI.dbg.step(90); return { k: TI.CUR.k, pat: TI.CUR.pat, base: TI.D.KINDS[TI.CUR.k].pat, wary: !!TI.CUR.wary, line: TI.D.T.ja.wary } })
+  expect(r.pen.review === 1 && r.ded.some(d => /口コミ★1300/.test(d)) && nx.k === 'granny' && nx.pat === nx.base - 1 && nx.wary, { r, nx }); return { ded: r.ded, next: nx }
+})
+await t('キレた時のマイナス: 千手観音は千手ビンタで店員が吹っ飛ぶ「治療費」', async () => { const r = await breakAt(6); expect(r.done === 'broke' && r.pen.heal === 1 && r.kick === 'fly' && r.ded.some(d => /治療費3000/.test(d)), r); return r.ded })
+await t('控除の行が多すぎる時は「そのほかの弁償」にまとめて紙に収める', async () => { const r = await ev(p, () => { Object.assign(TI.S.money, { stolen: 2, broke: 5, pen: { sign: 1, mom: 1, review: 1, heal: 1, clean: 1 } }); TI.S.closed = true; const d = TI.calcResult().slip.ded.filter(x => x.yen > 0); TI.S.closed = false; return d.map(x => x.label) }); expect(r.length <= 6 && r.includes('そのほかの弁償'), r); return r })
 await t('大統領は手が速い（構え・伸ばす・手を出すまでがふつうの客より短い）', async () => { const r = await ev(p, () => { const K = TI.D.KINDS; return [K.president.wind < K.normal.wind, K.president.lunge < K.normal.lunge, K.president.reach[1] < K.normal.reach[1]] }); expect(r.every(Boolean), r) })
 await t('大統領: ボディガードが「すぐ渡せよ？」→ 1回で渡すと閉店（シャッター・明細のハンコも閉店）', async () => {
   const r = await ev(p, () => { TI.dbg.skipTo(11); let n = 0; while (TI.CUR.st !== 'ready' && n++ < 400) TI.dbg.step(1); TI.dbg.step(60); const b = [...document.querySelectorAll('#fx .sb.guard')].map(e => e.textContent).join('|'); const boss = document.querySelector('#vignette').classList.contains('boss'); TI.dbg.give(); TI.dbg.step(60 * 3); const shutter = document.querySelector('#shutter').style.height; TI.dbg.step(60 * 5); return { b, boss, closed: TI.S.closed, shutter, mode: TI.S.mode } })

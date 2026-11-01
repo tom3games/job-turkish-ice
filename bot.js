@@ -17,7 +17,7 @@ window.TIBot = {
     const want = o.give === 'quick' ? true
       : o.give === 'greedy' ? false
       : o.give === 'random' ? cu.teases >= this.goal
-      : cu.k === 'granny' ? false : cu.teases > 0 && cu.left <= 0
+      : cu.k === 'granny' ? false : cu.teases > 0 && (cu.left <= 0 || (cu.bf && cu.bfLeft <= 0))
     if (want && cu.ph !== 'lunge') { TI.dbg.give(); return }
     if (cu.ph === 'lunge' && !cu.moved) { if (++this.w >= this.rt) { TI.dbg.move(this.dodgeDir(cu)); this.w = 0; this.rt = this.r(o.rt || [14, 14]) } }
     else this.w = 0

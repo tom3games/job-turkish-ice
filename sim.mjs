@@ -12,7 +12,7 @@ await p.addScriptTag({ path: 'bot.js' })
 const out = {}
 for (const [name, o] of [['skilled', { rt: [12, 16], give: 'skill' }], ['average', { rt: [12, 24], give: 'random' }], ['quick', { give: 'quick' }], ['greedy', { rt: [12, 16], give: 'greedy' }], ['slow', { rt: [18, 26], give: 'skill' }], ['spam', { spam: 5 }], ['nothing', { nothing: true }]]) {
   for (const seed of (process.env.SEEDS || '1,2,3').split(',').map(Number)) {
-    const r = await p.evaluate(([o, seed]) => { TI.dbg.start(seed); TI.dbg.pause(true); TI.S.tut = -1; const st = TIBot.run(60 * 400, o); TI.dbg.tick(400); const res = TI.calcResult(); return { m: TI.S.money, closed: TI.S.closed, inc: TI.S.incident, net: res.net, stamp: res.rank.st.ja.replace('\n', ''), mode: TI.S.mode, t: Math.round(TI.S.t) } }, [o, seed])
+    const r = await p.evaluate(([o, seed]) => { TI.dbg.start(seed); TI.dbg.pause(true); TI.S.tut = -1; const st = TIBot.run(60 * 400, o); TI.dbg.tick(400); const res = TI.calcResult(); return { m: { ...TI.S.money, pen: Object.values(TI.S.money.pen).join(',') }, closed: TI.S.closed, inc: TI.S.incident, net: res.net, stamp: res.rank.st.ja.replace('\n', ''), mode: TI.S.mode, t: Math.round(TI.S.t) } }, [o, seed])
     console.log(name.padEnd(8), seed, 'net', String(r.net).padStart(7), r.stamp.padEnd(5), JSON.stringify(r.m), r.closed ? 'CLOSED' : '', r.inc ? 'INCIDENT' : '', 'mode', r.mode, 't', r.t)
     ;(out[name] ||= []).push(r.net)
   }
