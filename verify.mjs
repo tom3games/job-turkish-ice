@@ -96,6 +96,7 @@ await t('手が伸びきる寸前に逃がすと「ギリギリ」で1.5倍', as
 await t('限界の手前で顔（マーク）と一言が変わり、そこで渡すと「ちょうどいい」手当', async () => {
   const r = await ev(p, () => {
     const c = TI.CUR; while (c.left > 0) TI.dbg.dodge(false)
+    TI.dbg.step(100)
     const warn = { emo: TI.dbg.cust().emo, line: TI.dbg.cust().line, hint: document.querySelector('#hint').textContent, flash: document.querySelector('#bGive').classList.contains('flash') }
     const just0 = TI.S.money.just; TI.dbg.give(); TI.dbg.step(40)
     return { warn, done: TI.dbg.cust() && TI.dbg.cust().done, just: TI.S.money.just - just0, tut: TI.S.tut }
@@ -231,7 +232,7 @@ await t('キレた時のマイナス: 千手観音は千手ビンタで店員が
 await t('控除の行が多すぎる時は「そのほかの弁償」にまとめて紙に収める', async () => { const r = await ev(p, () => { Object.assign(TI.S.money, { stolen: 2, broke: 5, pen: { sign: 1, mom: 1, review: 1, heal: 1, clean: 1 } }); TI.S.closed = true; const d = TI.calcResult().slip.ded.filter(x => x.yen > 0); TI.S.closed = false; return d.map(x => x.label) }); expect(r.length <= 6 && r.includes('そのほかの弁償'), r); return r })
 await t('大統領は手が速い（構え・伸ばす・手を出すまでがふつうの客より短い）', async () => { const r = await ev(p, () => { const K = TI.D.KINDS; return [K.president.wind < K.normal.wind, K.president.lunge < K.normal.lunge, K.president.reach[1] < K.normal.reach[1]] }); expect(r.every(Boolean), r) })
 await t('大統領: ボディガードが「すぐ渡せよ？」→ 1回で渡すと閉店（シャッター・明細のハンコも閉店）', async () => {
-  const r = await ev(p, () => { TI.dbg.skipTo(11); let n = 0; while (TI.CUR.st !== 'ready' && n++ < 400) TI.dbg.step(1); TI.dbg.step(60); const b = [...document.querySelectorAll('#fx .sb.guard')].map(e => e.textContent).join('|'); const boss = document.querySelector('#vignette').classList.contains('boss'); TI.dbg.give(); TI.dbg.step(60 * 3); const shutter = document.querySelector('#shutter').style.height; TI.dbg.step(60 * 5); return { b, boss, closed: TI.S.closed, shutter, mode: TI.S.mode } })
+  const r = await ev(p, () => { TI.dbg.skipTo(11); let n = 0; while (TI.CUR.st !== 'ready' && n++ < 400) TI.dbg.step(1); n = 0; while (!document.querySelector('#fx .sb.guard') && n++ < 240) TI.dbg.step(1); const b = [...document.querySelectorAll('#fx .sb.guard')].map(e => e.textContent).join('|'); const boss = document.querySelector('#vignette').classList.contains('boss'); TI.dbg.give(); TI.dbg.step(60 * 3); const shutter = document.querySelector('#shutter').style.height; TI.dbg.step(60 * 5); return { b, boss, closed: TI.S.closed, shutter, mode: TI.S.mode } })
   await p.waitForFunction(() => TI.S.mode === 'result', null, { timeout: 5000 }).catch(() => {})
   const r2 = await ev(p, () => ({ mode: TI.S.mode, stamp: TI.S.result && TI.S.result.rank.st.ja, ded: TI.S.result && TI.S.result.slip.ded.map(d => d.label + d.note + d.yen) }))
   expect(/すぐ渡せよ/.test(r.b) && r.boss && r.closed && r.shutter === '100%' && r2.mode === 'result' && r2.stamp === '閉店' && r2.ded.some(d => /閉店30000/.test(d)), { r, r2 }); return r2
@@ -267,6 +268,18 @@ await t('自動プレイ: 遊びすぎる人は泣かせまくってクビ', asy
 await t('自動プレイ: 十字キーを連打し続ける人はチップ0でクビ', async () => { const r = D.spam = await day({ spam: 5 }, 7); expect(r.stamp === 'クビ' && r.m.tips === 0, r); return r })
 await t('自動プレイ: 何もしない通しは最低のハンコ（クビ）', async () => { const r = D.nothing = await day({ nothing: true }, 7); expect(r.stamp === 'クビ' && r.m.teases === 0 && r.m.stolen === 12, r); return r })
 await t('手取りが 上手い > ふつう > 遊びすぎ・連打・何もしない・すぐ渡す で分かれる', async () => { const avg = D.avg = await day({ rt: [12, 24], give: 'random' }, 8); const o = { skill: D.skill.net, avg: avg.net, greedy: D.greedy.net, spam: D.spam.net, nothing: D.nothing.net, quick: D.quick.net }; expect(D.skill.net > avg.net && avg.net > Math.max(D.greedy.net, D.spam.net, D.nothing.net, D.quick.net) && D.skill.net - Math.max(D.greedy.net, D.nothing.net, D.spam.net) > 15000, o); return o })
+for (const [name, o] of [['上手い人', { rt: [12, 16], give: 'skill' }], ['遊びすぎ', { rt: [12, 16], give: 'greedy' }], ['ふつう', { rt: [12, 24], give: 'random' }]]) {
+  await t(`文字は同時に2つまで・読める時間（0.9秒＋1字0.09秒）以上・一言は12字前後まで（${name}の1日）`, async () => {
+    const r = await ev(p, o => {
+      TI.dbg.start(7); TI.dbg.pause(true); store: { try { localStorage.removeItem('ti.tut') } catch (e) {} } TI.S.tut = 0
+      let max = 0, at = null, perCust = {}
+      for (let i = 0; i < 60 * 400 && TI.S.mode === 'play'; i++) { TIBot.tick(o); TI.dbg.tick(1); const n = TI.dbg.texts(); if (n > max) { max = n; at = [...document.querySelectorAll('#fx > *')].map(e => e.textContent).concat(document.querySelector('#hint').hidden ? [] : [document.querySelector('#hint').textContent]) } const k = TI.S.ci; perCust[k] = Math.max(perCust[k] || 0, n) }
+      const log = TI.dbg.txtLog(), short = log.filter(x => x.shown != null && x.shown < x.min - 0.02), long = log.filter(x => x.ch === 'sb' && [...x.text].length > 13)
+      return { max, at, perCust, n: log.length, short: short.map(x => x.text + ':' + x.shown + '/' + x.min + ' p' + x.prio), long: long.map(x => x.text) }
+    }, o)
+    expect(r.max <= 2 && r.short.length <= Math.ceil(r.n * 0.05) && !r.long.length && r.n > 20, r); return { max: r.max, items: r.n, cutShort: r.short.length, perCust: Object.values(r.perCust).join('') }
+  })
+}
 await t('画面をスワイプしても動かせる（上・左）', async () => { const r = await ev(p, () => { TI.dbg.start(3); TI.dbg.pause(true); TI.S.tut = -1; let n = 0; while (TI.CUR.st !== 'ready' && n++ < 300) TI.dbg.step(1); const c = document.querySelector('#gl'), sw = (x0, y0, x1, y1) => { c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: x0, clientY: y0 })); window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: x1, clientY: y1 })) }; sw(200, 400, 200, 330); const a = TI.S.spot; sw(200, 400, 120, 405); return [a, TI.S.spot] }); expect(r[0] === 'U' && r[1] === 'L', r); return r })
 await t('キーボード: 左にある時に→で真ん中、↑で上、Spaceで渡す', async () => { await p.keyboard.press('ArrowRight'); const a = await ev(p, () => { TI.dbg.step(5); return TI.S.spot }); await p.keyboard.press('ArrowUp'); const b = await ev(p, () => { TI.dbg.step(5); return TI.S.spot }); await p.keyboard.press('Space'); const c = await ev(p, () => { TI.dbg.step(30); return TI.dbg.cust().done }); expect(a === 'C' && b === 'U' && c === 'given', [a, b, c]); return [a, b, c] })
 await t('ここまでエラーなし', async () => { expect(p.errs.length === 0, p.errs.join('|')) })

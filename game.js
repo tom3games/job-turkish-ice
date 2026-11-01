@@ -350,6 +350,7 @@ function emoTex(kind) {
     else if (kind === 'sweat') { x.fillStyle = '#9edcff'; x.strokeStyle = '#1d4a7a'; x.lineWidth = 5; x.beginPath(); x.moveTo(64, 20); x.quadraticCurveTo(96, 72, 64, 96); x.quadraticCurveTo(32, 72, 64, 20); x.fill(); x.stroke() }
     else if (kind === 'note') { x.fillStyle = '#ffd166'; x.strokeStyle = '#1d1a16'; x.lineWidth = 5; x.beginPath(); x.ellipse(44, 92, 18, 13, -0.4, 0, 7); x.fill(); x.stroke(); x.beginPath(); x.moveTo(60, 88); x.lineTo(60, 26); x.lineTo(96, 36); x.lineTo(96, 52); x.lineTo(60, 44); x.stroke(); x.fillRect(56, 26, 6, 64) }
     else if (kind === 'heart') { x.fillStyle = '#ff6b8a'; x.strokeStyle = '#1d1a16'; x.lineWidth = 6; x.beginPath(); x.moveTo(64, 104); x.bezierCurveTo(10, 66, 22, 18, 64, 44); x.bezierCurveTo(106, 18, 118, 66, 64, 104); x.fill(); x.stroke() }
+    else if (kind === 'bang2') { x.fillStyle = '#ff5a4e'; x.strokeStyle = '#1d1a16'; x.lineWidth = 6; for (const ox of [-22, 22]) { x.beginPath(); x.moveTo(52 + ox, 14); x.lineTo(78 + ox, 14); x.lineTo(70 + ox, 82); x.lineTo(58 + ox, 82); x.closePath(); x.fill(); x.stroke(); x.beginPath(); x.arc(64 + ox, 104, 10, 0, 7); x.fill(); x.stroke() } }
     else if (kind === 'flash') { const g = x.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.3, 'rgba(255,255,240,.8)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128) }
     else if (kind === 'zzz') { x.fillStyle = '#fff'; x.strokeStyle = '#1d1a16'; x.lineWidth = 6; x.font = `900 52px ${FONT}`; x.strokeText('Z', 30, 96); x.fillText('Z', 30, 96); x.font = `900 36px ${FONT}`; x.strokeText('z', 74, 52); x.fillText('z', 74, 52) }
     else if (kind === 'bang') { x.fillStyle = '#ffd166'; x.strokeStyle = '#1d1a16'; x.lineWidth = 6; x.beginPath(); x.moveTo(52, 16); x.lineTo(78, 16); x.lineTo(70, 82); x.lineTo(58, 82); x.closePath(); x.fill(); x.stroke(); x.beginPath(); x.arc(64, 104, 10, 0, 7); x.fill(); x.stroke() }
@@ -472,44 +473,56 @@ function setupWalkers() {
 }
 
 // ---------- 吹き出し（DOM）
-const FX = []
 function toScreen(p) { _w.copy(p).project(camera); return { x: (_w.x + 1) / 2 * innerWidth, y: (1 - _w.y) / 2 * innerHeight, z: _w.z } }
-function ono(text, pos, cls = '', o = {}) {
-  const el = document.createElement('div'); el.className = 'ono ' + cls; el.textContent = text
-  el.style.fontSize = (o.size ?? 30) + 'px'; $('#fx').appendChild(el)
-  FX.push({ el, pos: pos.clone(), t: 0, life: o.life ?? 1.1, rise: o.rise ?? 0.4, kind: 'ono', rot: o.rot ?? (Math.random() - 0.5) * 16 })
+// 画面の文字は2つの枠だけ: 「一言」（吹き出し1つ）と「判定」（擬音1つ）。同時に最大2つ。
+// 前のが読める時間（0.9秒＋1字0.09秒、大事な判定は長め）を過ぎて消えてから次を出す。大事なもの（prio が小さい）は割り込める
+const TXT = { sp: { cur: null, q: [] }, ju: { cur: null, q: [] } }
+const readT = (text, crit) => { const n = [...String(text).replace(/<[^>]+>/g, '')].length, t = 0.9 + 0.09 * n; return crit ? Math.max(t * 1.4, 2.2) : t }
+function txtReq(ch, it) {
+  const C = TXT[ch]; it.min = readT(it.text + (it.sub || ''), it.prio === 0); it.life = Math.max(it.life || 0, it.min); it.at = S.time
+  if (!C.cur) { txtShow(ch, it); return }
+  if (it.prio < C.cur.prio) { txtDrop(C.cur); C.cur = null; txtShow(ch, it); return }
+  if (it.prio >= 3) return                                  // おまけの一言は空いている時だけ
+  C.q.push(it); C.q.sort((a, b) => a.prio - b.prio || a.at - b.at); if (C.q.length > 2) C.q.length = 2
 }
-function bubble(c, text, cls = '', life = 1.8) {
-  if (!c) return
-  if (c.bub) { c.bub.remove(); const i = FX.findIndex(f => f.el === c.bub); if (i >= 0) FX.splice(i, 1) }
-  const el = document.createElement('div'); el.className = 'sb ' + cls; el.textContent = text; $('#fx').appendChild(el)
-  c.bub = el; FX.push({ el, c, t: 0, life, kind: 'sb' }); return el
+function txtShow(ch, it) {
+  const el = document.createElement('div')
+  if (ch === 'ju') { el.className = 'ono ' + (it.cls || ''); el.textContent = it.text; el.style.fontSize = (it.size ?? 30) + 'px'; if (it.sub) { const sb = document.createElement('small'); sb.textContent = it.sub; el.appendChild(sb) } }
+  else { el.className = 'sb ' + (it.cls || ''); el.textContent = it.text; if (it.c) it.c.bub = el }
+  $('#fx').appendChild(el); it.el = el; it.t = 0; it.kind = ch === 'ju' ? 'ono' : 'sb'; TXT[ch].cur = it
+  if (S.txtLog && S.txtLog.length < 400) S.txtLog.push(it)
 }
-function clearFx() { for (const f of FX) f.el.remove(); FX.length = 0; for (const c of allChars()) c.bub = null }
+function txtDrop(it) { if (!it) return; it.shown = it.t; it.el && it.el.remove(); if (it.c && it.c.bub === it.el) it.c.bub = null }
+function ono(text, pos, cls = '', o = {}) { txtReq('ju', { text, pos: pos.clone(), cls, size: o.size, sub: o.sub, life: o.life, prio: o.prio ?? 1, rise: o.rise ?? 0.3, rot: o.rot ?? (Math.random() - 0.5) * 10 }) }
+function bubble(c, text, cls = '', life = 0, prio = 1) { if (!c) return; txtReq('sp', { c, text, cls, life, prio }) }
+const FX = { get length() { return (TXT.sp.cur ? 1 : 0) + (TXT.ju.cur ? 1 : 0) } }
+function clearFx() { for (const ch of ['sp', 'ju']) { txtDrop(TXT[ch].cur); TXT[ch].cur = null; TXT[ch].q.length = 0 } for (const c of allChars()) c.bub = null }
 function updateFx(dt) {
   const top = 52, bot = innerHeight - (S.mode === 'play' ? 130 : 12)
-  const boxes = []
-  for (let i = FX.length - 1; i >= 0; i--) {
-    const f = FX[i]; f.t += dt
-    if (f.t >= f.life || (f.c && !f.c.g.parent)) { f.el.remove(); FX.splice(i, 1); if (f.c && f.c.bub === f.el) f.c.bub = null; continue }
-    const k = f.t / f.life
-    if (f.kind === 'ono') {
-      const s = toScreen(_w.copy(f.pos).add(_q.set(0, f.rise * ease(k * 2), 0)))
+  for (const ch of ['sp', 'ju']) {
+    const C = TXT[ch]
+    if (C.cur) { const f = C.cur; f.t += dt; if (f.t >= f.life || (f.c && !f.c.g.parent)) { txtDrop(f); C.cur = null } }
+    // 次を出す（古すぎるもの・話し手がいないものは捨てる）
+    while (!C.cur && C.q.length) { const it = C.q.shift(); if (S.time - it.at > 3 || (it.c && !it.c.g.parent)) continue; txtShow(ch, it) }
+    const f = C.cur; if (!f) continue
+    const k = f.t / f.life, fade = f.life - f.t < 0.2 ? (f.life - f.t) / 0.2 : 1
+    if (ch === 'ju') {
+      const s = toScreen(_w.copy(f.pos).add(_q.set(0, f.rise * ease(k * 3), 0)))
       if (s.z > 1) { f.el.style.opacity = 0; continue }
-      const sc = k < 0.12 ? 0.4 + k / 0.12 * 0.8 : 1.2 - Math.min(0.2, (k - 0.12) * 2)
-      const w = f.el.offsetWidth, x = clamp(s.x, w / 2 + 8, innerWidth - w / 2 - 8)
-      f.el.style.transform = `translate(${x - w / 2}px,${s.y - 20}px) rotate(${f.rot}deg) scale(${sc})`; f.el.style.opacity = k > 0.75 ? (1 - k) / 0.25 : 1
+      const sc = f.t < 0.12 ? 0.4 + f.t / 0.12 * 0.6 : 1
+      const w = f.el.offsetWidth, h = f.el.offsetHeight, x = clamp(s.x, w / 2 + 8, innerWidth - w / 2 - 8), y = clamp(s.y - 20, top, bot - h)
+      f.el.style.transform = `translate(${x - w / 2}px,${y}px) rotate(${f.rot}deg) scale(${sc})`; f.el.style.opacity = fade
     } else {
       const s = toScreen(headPos(f.c, _hp)), w = f.el.offsetWidth, h = f.el.offsetHeight
-      let x = clamp(s.x - w / 2, 8, innerWidth - w - 8), y = clamp(s.y - h - 10, top, bot - h)
-      // 吹き出し同士が重なったら下へずらす
-      for (let n = 0; n < 4; n++) { const hit = boxes.find(b => x < b.x + b.w && x + w > b.x && y < b.y + b.h && y + h > b.y); if (!hit) break; y = hit.y + hit.h + 6 }
-      boxes.push({ x, y, w, h })
+      const x = clamp(s.x - w / 2, 8, innerWidth - w - 8), y = clamp(s.y - h - 10, top, bot - h)
       const sc = f.t < 0.12 ? 0.5 + f.t / 0.12 * 0.5 : 1
       const jig = f.el.classList.contains('hot') || f.el.classList.contains('guard') ? Math.sin(S.time * 60) * 2 : 0
-      f.el.style.transform = `translate(${x + jig}px,${y}px) scale(${sc})`; f.el.style.opacity = k > 0.88 ? (1 - k) / 0.12 : 1
+      f.el.style.transform = `translate(${x + jig}px,${y}px) scale(${sc})`; f.el.style.opacity = fade
     }
   }
+  // 判定の枠と一言の枠が重なったら、判定を一言の下へずらす
+  const a = TXT.sp.cur, b = TXT.ju.cur
+  if (a && b) { const ra = a.el.getBoundingClientRect(), rb = b.el.getBoundingClientRect(); if (ra.left < rb.right && ra.right > rb.left && ra.top < rb.bottom && ra.bottom > rb.top) b.el.style.transform += ` translateY(${Math.round(ra.bottom - rb.top + 6)}px)` }
 }
 
 // ---------- 客
@@ -569,7 +582,6 @@ function nextCustomer() {
 }
 function presArrive() {
   Snd.setTrack('boss'); Snd.sfx('fanfare'); $('#vignette').classList.add('boss')
-  later(0.3, () => { if (MASTER.c && S.mode === 'play') { bubble(MASTER.c, TT().bossPres, 'boss', 2); Snd.sfx('boss') } })
   fx.shake(0.02, 0.6)
 }
 
@@ -625,7 +637,7 @@ function move(dir) {
 function irritate(cu) {
   cu.irk = 0; cu.idles++
   if (cu.idles >= (cu.k === 'kid' || cu.k === 'yankee' ? 2 : 3) && !(cu.tut && S.tut >= 0)) { broke(cu, true); return }
-  custSay(cu, pick(TT().L[cu.k].idle), cu.k === 'yankee' ? 'hot' : 'warm'); if (cu.guards) guardSay(TT().L.guard.idle); setEmo(cu)
+  custSay(cu, pick(TT().L[cu.k].idle), cu.k === 'yankee' ? 'hot' : 'warm'); setEmo(cu)
   if (cu.tut) S.tutIrk = 2
 }
 // 狙う場所（千手観音は2〜3か所。必ず空きが残る）
@@ -661,16 +673,16 @@ function addCrowd() {
   CROWD.push(m)
 }
 function crowdN() { return CROWD.filter(m => m.st !== 'out').length }
-function crowdSay(text) { const live = CROWD.filter(m => m.st === 'idle'); if (!live.length) return; const m = live[Math.floor(Math.random() * live.length)]; ono(text, headPos(m.c, _v2).clone(), 'yel', { size: 22, life: 1, rise: 0.25 }) }
+function crowdSay(text) { return; const live = CROWD.filter(m => m.st === 'idle'); if (!live.length) return; const m = live[Math.floor(Math.random() * live.length)]; ono(text, headPos(m.c, _v2).clone(), 'yel', { size: 22, life: 1, rise: 0.25 }) }
 function crowdCheer(big) {
   const n = crowdN()
-  if (n) { Snd.sfx('ooh', { n }); later(0.25, () => crowdSay(pick(TT().crowdOo))) }
+  if (n) Snd.sfx('ooh', { n })
   addCrowd(); if (big) addCrowd()
   S.money.crowdMax = Math.max(S.money.crowdMax, crowdN())
 }
 function crowdScatter() {
   const live = CROWD.filter(m => m.st !== 'out'); if (!live.length) return
-  Snd.sfx('boo'); crowdSay(pick(TT().crowdBoo))
+  Snd.sfx('boo')
   for (const m of live) { m.st = 'out'; m.tx = m.tx < 0 ? -7 : 7; m.tz += 0.6; m.sp = 2.2 + Math.random() }
 }
 function clearCrowd() { for (const m of CROWD) { freeChar(m.c); if (m.phone) m.phone.removeFromParent() } CROWD.length = 0 }
@@ -708,7 +720,7 @@ function spawnMom(cu) {
   const mom = makeChar('female-d', { h: 1.6, anim: 'walk' }); if (!mom) return
   mom.off = [0.85, 0.6]; mom.face = Math.PI + 0.25; mom.g.position.set(cu.c.g.position.x + 3.5, 0, cu.c.g.position.z + 0.6); scene.add(mom.g)
   cu.guards = (cu.guards || []).concat(mom); cu.mom = mom
-  later(0.7, () => { if (mom.g.parent) { bubble(mom, TT().L.mom, 'hot', 2.4); Snd.sfx('rage'); fx.shake(0.02, 0.3); ono(`−¥${D.YEN.mom}`, headPos(mom, _v2).clone().add(_q.set(0, 0.35, 0)), 'red', { size: 26, life: 1.2, rot: 0 }) } })
+  later(0.7, () => { if (mom.g.parent) { bubble(mom, TT().L.mom, 'hot', 0, 1); Snd.sfx('rage'); fx.shake(0.02, 0.3) } })
 }
 
 // ---------- 遊びの進行
@@ -739,9 +751,9 @@ function setEmo(cu) {
   c.warn = !cu.done && warn && k !== 'granny'
   if (cu.bf) { const b = cu.bf, e2 = cu.bfBroke ? 'anger' : cu.done ? null : cu.bfLeft === 0 ? 'anger' : cu.bfLeft === 1 ? 'sweat' : null; b.emoK = e2; b.emo.visible = !!e2; if (e2) b.emo.material.map = emoTex(e2); b.warn = !cu.done && cu.bfLeft === 0 }
 }
-function custSay(cu, text, cls = '', life = 1.9) { cu.lastLine = text; bubble(cu.c, text, cls, life) }
-function guardSay(text, life = 2) { if (!CUR || !CUR.guards) return; const gd = CUR.guards[(CUR.teases + 1) % CUR.guards.length]; bubble(gd, text, 'guard', life); Snd.sfx('guard'); gd.lunge = 1; fx.shake(0.012, 0.3) }
-function bossSay(text, life = 1.6) { if (MASTER.c) { bubble(MASTER.c, text, 'boss', life); Snd.sfx('boss') } }
+function custSay(cu, text, cls = '', life = 0, prio = 1) { cu.lastLine = text; bubble(cu.c, text, cls, life, prio) }
+function guardSay(text, life = 0, prio = 1) { if (!CUR || !CUR.guards) return; const gd = CUR.guards[(CUR.teases + 1) % CUR.guards.length]; bubble(gd, text, 'guard', life, prio); Snd.sfx('guard'); gd.lunge = 1; fx.shake(0.012, 0.3) }
+function bossSay(text, life = 0, prio = 2) { if (MASTER.c) { bubble(MASTER.c, text, 'boss', life, prio); Snd.sfx('boss') } }
 function speedK() { return 1 - 0.16 * clamp(S.ci / (D.DAY.length - 1), 0, 1) }
 function updateCust(dt) {
   // 歩いて並ぶ・前へ詰める
@@ -769,7 +781,7 @@ function updateCust(dt) {
   const cu = CUR, def = cu.def, sk = speedK() * (cu.tut && S.tut >= 0 ? 1.5 : 1)
   cu.pt -= dt
   if (S.giving) return
-  if (cu.ph === 'idle') { cu.ph = 'wait'; cu.pt = lerp(def.reach[0], def.reach[1], R()) * sk; cu.moved = null }
+  if (cu.ph === 'idle') { cu.ph = 'wait'; cu.pt = lerp(def.reach[0], def.reach[1], R()) * sk + (cu.k === 'president' && !cu.waited ? 2.2 : 0); cu.waited = true; cu.moved = null }   // 大統領は最初だけ、ボディガードの脅しを聞かせてから
   else if (cu.ph === 'wait') { if (cu.pt <= 0) { cu.ph = 'wind'; cu.pt = cu.pdur = def.wind * sk; cu.aim = pickAim(cu); Snd.sfx('wind') } }
   else if (cu.ph === 'wind') {
     if (!cu.aim.includes(S.spot)) cu.aim = pickAim(cu)
@@ -799,16 +811,14 @@ function startLunge(cu) {
   const sk = speedK() * (cu.tut && S.tut >= 0 ? 1.5 : 1)
   cu.ph = 'lunge'; cu.pt = cu.pdur = cu.def.lunge * sk * (cu.fooled ? 0.6 : 1); cu.moved = null; cu.tell = 0.3
   cu.dbl = cu.k === 'yankee' && cu.i >= D.FEINT.dblFrom && R() < D.FEINT.dblP; cu.second = false
-  if (cu.i >= D.FEINT.from && !(cu.tut && S.tut >= 0)) { ono(cu.dbl ? TT().dblO : TT().hup, headPos(cu.c, _v2).clone().add(_q.set(-0.3, -0.1, 0)), cu.dbl ? 'red' : 'yel', { size: cu.dbl ? 30 : 24, life: 0.6, rise: 0.15 }); Snd.sfx('hup') }
+  if (cu.i >= D.FEINT.from && !(cu.tut && S.tut >= 0)) { cu.tellIcon = cu.dbl ? 'bang2' : 'bang'; cu.tellIconT = 0.45; Snd.sfx('hup') }
 }
 function onReady(cu) {
   const L = TT().L[cu.k]
-  custSay(cu, pick(L.hi), 'order', 2.2); setEmo(cu)
-  if (cu.k === 'president') later(0.9, () => { if (CUR === cu && cu.st === 'ready') guardSay(TT().L.guard.hi, 2.6) })
-  if (S.ci === 0) later(1.5, () => { if (S.mode === 'play') bossSay(TT().bossStart, 2.2) })
+  custSay(cu, pick(L.hi), 'order'); setEmo(cu)
+  if (cu.k === 'president') later(0.9, () => { if (CUR === cu && cu.st === 'ready') guardSay(TT().L.guard.hi, 0, 1) })
   S.coneOn = true
-  if (S.wary && cu.k !== 'president') { S.wary = false; cu.wary = true; cu.pat = cu.left = Math.max(1, cu.pat - 1); later(1.2, () => { if (CUR === cu && cu.st === 'ready') custSay(cu, TT().wary, 'warm', 1.8) }) }
-  if (cu.bf) later(1.0, () => { if (CUR === cu && cu.st === 'ready') bfSay(cu, TT().L.bf.s[0], '') })
+  if (S.wary && cu.k !== 'president') { S.wary = false; cu.wary = true; cu.pat = cu.left = Math.max(1, cu.pat - 1); later(1.2, () => { if (CUR === cu && cu.st === 'ready') custSay(cu, TT().wary, 'warm') }) }
 }
 function crowdMult() { return Math.min(D.CROWD.cap, 1 + D.CROWD.per * CROWD.filter(m => m.st !== 'out').length) }
 function tease(cu, close, dbl) {
@@ -816,24 +826,23 @@ function tease(cu, close, dbl) {
   const T = TT(), mult = (close ? 1 + D.YEN.close : 1) * (dbl ? 1 + D.YEN.dbl : 1), add = Math.round(cu.def.tip * mult)
   const bonus = Math.round(add * (crowdMult() - 1))
   cu.tip += add; cu.crowdBonus = (cu.crowdBonus || 0) + bonus; S.money.teases++; if (close) { S.money.close++; cu.close++ }
-  if (dbl) ono(T.dblWin, P.tip.clone().add(_q.set(0.1, 0.62, 0.2)), 'red', { size: 30, life: 1.2 })
   crowdCheer(close || dbl)
   Snd.sfx('whiff'); later(0.06, () => Snd.sfx('bell', { p: close ? 1.12 : 1 })); if (close) Snd.sfx('close')
   bell.userData.ring = 1
   const tp = P.tip.clone()
-  ono(pick(T.whiff), tp.clone().add(_q.set(0, 0.25, 0.2)), 'pink', { size: 32 })
-  if (close) ono(T.close, tp.clone().add(_q.set(-0.1, 0.5, 0.2)), 'yel', { size: 34, life: 1.2 })
-  if (add) later(0.15, () => ono(`+¥${add + bonus}`, tp.clone().add(_q.set(0.25, 0.1, 0.1)), 'yel', { size: 24, life: 0.9, rot: 0 }))
+  const willBreak = cu.left - 1 < 0 || (cu.bf && cu.bfLeft - 1 < 0)
+  if (!willBreak) ono(dbl ? T.dblWin : close ? T.closeO : pick(T.whiff), tp.clone().add(_q.set(0, 0.3, 0.2)), dbl ? 'red' : close ? 'yel' : 'pink', { size: close || dbl ? 32 : 30, sub: add ? `+¥${(add + bonus).toLocaleString('en-US')}` : '' })
   fx.burst(tp, { count: 14, color: 0xffe08a, speed: 1.2, life: 0.4, size: 0.06 })
   photoMoment((close ? 2 : 1) + (cu.k === 'president' ? 2 : 0) + (cu.k === 'senju' ? 1 : 0))
   // 限界を超えた（カップルは彼氏が先にキレることがある）
-  if (cu.bf) { cu.bfLeft--; if (cu.bfLeft < 0) { bfBroke(cu); return } bfSay(cu, cu.bfLeft === 0 ? T.L.bf.warn : T.L.bf.s[Math.min(T.L.bf.s.length - 1, cu.teases)], cu.bfLeft === 0 ? 'hot' : '') }
+  if (cu.bf) { cu.bfLeft--; if (cu.bfLeft < 0) { bfBroke(cu); return } }
   if (cu.left < 0) { broke(cu, false); return }
   if (cu.k === 'granny' && cu.teases >= cu.def.cap) { finish(cu, 'cap'); return }
-  custSay(cu, stageLine(cu), cu.left <= 0 && cu.k !== 'granny' ? (cu.k === 'kid' ? 'cry' : 'hot') : '', 1.8)
+  // 1回につき一言は1つだけ。カップルは彼氏（彼女が限界の時だけ彼女）、大統領はボディガード（大統領が限界間近の時だけ大統領）
+  if (cu.bf && !(cu.left <= 0 && cu.bfLeft > 0)) bfSay(cu, cu.bfLeft === 0 ? T.L.bf.warn : T.L.bf.s[Math.min(T.L.bf.s.length - 1, cu.teases)], cu.bfLeft === 0 ? 'hot' : '')
+  else if (cu.k === 'president' && cu.left > 1) guardSay(T.L.guard.s[Math.min(cu.teases - 1, T.L.guard.s.length - 1)])
+  else custSay(cu, stageLine(cu), cu.left <= 0 && cu.k !== 'granny' ? (cu.k === 'kid' ? 'cry' : 'hot') : '')
   if (cu.k === 'yankee' && cu.left <= 0) Snd.sfx('rage'); else if (cu.k === 'kid' && cu.left <= 0) Snd.sfx('cry', { p: 1.2 }); else Snd.sfx('laugh', { p: cu.k === 'kid' ? 1.5 : cu.k === 'granny' ? 1.25 : cu.k === 'president' ? 0.7 : 1 })
-  if (cu.k === 'president') guardSay(T.L.guard.s[Math.min(cu.teases - 1, T.L.guard.s.length - 1)], 1.8)
-  else if (R() < 0.3) later(0.7, () => { if (S.mode === 'play' && CUR === cu) bossSay(pick(T.bossGood)) })
   setEmo(cu)
   play(cu.c, cu.left <= 0 ? 'emote-no' : 'emote-yes', 0.15, 1.2, true); cu.react = 1
 }
@@ -841,11 +850,10 @@ function stolen(cu) {
   S.coneOn = false; if (cu.tut) S.lastStolen = true
   S.money.stolen++
   const T = TT()
-  Snd.sfx('grab'); ono(T.stolenO, P.tip.clone().add(_q.set(0, 0.3, 0)), 'red', { size: 34 }); crowdScatter()
+  Snd.sfx('grab'); ono(T.stolenO, P.tip.clone().add(_q.set(0, 0.3, 0)), 'red', { size: 34, prio: 0, sub: `−¥${D.YEN.ice}` }); crowdScatter()
   fx.shake(0.02, 0.25)
   coneTo(cu)
-  custSay(cu, lines().stolen, 'warm', 1.8)
-  later(0.8, () => { if (S.mode === 'play') bossSay(pick(T.bossStolen)) })
+  custSay(cu, lines().stolen, 'warm')
   cu.tip = 0
   finish(cu, 'stolen')
 }
@@ -853,9 +861,10 @@ function broke(cu, idle) {
   const T = TT(), L = lines()
   if (cu.k === 'president') { incident(cu); return }
   S.money.broke++; cu.tip = 0; S.coneOn = false
-  custSay(cu, L.brk, cu.k === 'kid' ? 'cry' : cu.k === 'granny' ? '' : 'hot', 2.2)
+  custSay(cu, L.brk, cu.k === 'kid' ? 'cry' : cu.k === 'granny' ? '' : 'hot', 0, 0)
   const hp = headPos(cu.c, _v2).clone()
-  ono(T.brokeO[cu.k], hp.add(_q.set(0, 0.25, 0)), cu.k === 'kid' ? 'blue' : 'red', { size: cu.k === 'kid' ? 40 : 36, life: 1.4 })
+  const penY = { kid: D.YEN.mom, yankee: D.YEN.sign, senju: D.YEN.heal, normal: D.YEN.review, couple: D.YEN.review }[cu.k] || 0
+  ono(T.brokeO[cu.k], hp.add(_q.set(0, 0.25, 0)), cu.k === 'kid' ? 'blue' : 'red', { size: 36, prio: 0, sub: penY ? `${T.penO[cu.k]} −¥${(penY + D.YEN.ice).toLocaleString('en-US')}` : `−¥${D.YEN.ice}` })
   const pen = S.money.pen
   if (cu.k === 'kid') {
     Snd.sfx('cry'); play(cu.c, 'crouch', 0.2)
@@ -863,32 +872,30 @@ function broke(cu, idle) {
     pen.mom++; later(0.8, () => spawnMom(cu))
   } else if (cu.k === 'yankee') {
     Snd.sfx('rage'); Snd.sfx('kick'); play(cu.c, 'attack-kick-right', 0.1, 1.2, true); fx.shake(0.06, 0.5); fx.zoom(0.06, 0.3); cu.slap = 1
-    pen.sign++; dropSign(); later(0.45, () => ono(T.signO, _v2.set(0.1, 1.5, 0.1).clone(), 'red', { size: 30, life: 1.3 }))
+    pen.sign++; dropSign()
   } else if (cu.k === 'senju') {
     Snd.sfx('rage'); Snd.sfx('slap'); play(cu.c, 'attack-melee-right', 0.1, 1.3, true); fx.shake(0.07, 0.6); cu.slap = 1
-    pen.heal++; S.kick = { kind: 'fly', t: 0 }; S.lastKick = 'fly'; ono(T.slapO, P.tip.clone().add(_q.set(0, 0.4, -0.2)), 'red', { size: 46, life: 1.2 })
+    pen.heal++; S.kick = { kind: 'fly', t: 0 }; S.lastKick = 'fly'
   } else if (cu.k === 'granny') { play(cu.c, 'crouch', 0.4) }
   else {
     // ふつう・カップルの彼女: スマホで★1の口コミ → 次の客が警戒
     Snd.sfx('rage'); play(cu.c, 'emote-no', 0.15, 1, true)
-    if (cu.k === 'normal' || cu.k === 'couple') { pen.review++; S.wary = true; later(0.6, () => ono(T.reviewO, headPos(cu.c, _v2).clone().add(_q.set(0.2, 0.5, 0)), 'yel', { size: 34, life: 1.6, rot: 0 })) }
+    if (cu.k === 'normal' || cu.k === 'couple') { pen.review++; S.wary = true }
   }
   crowdScatter()
   coneTo(cu)
-  later(0.9, () => { if (S.mode === 'play') bossSay(pick(T.bossBroke)) })
   finish(cu, 'broke')
 }
 // カップルの彼氏がキレる（胸ぐら）
-function bfSay(cu, text, cls) { if (cu.bf) { bubble(cu.bf, text, cls, 1.9); cu.bf.lastLine = text } }
+function bfSay(cu, text, cls, prio = 1) { if (cu.bf) { bubble(cu.bf, text, cls, 0, prio); cu.bf.lastLine = text } }
 function bfBroke(cu) {
   const T = TT()
   S.money.broke++; S.money.pen.clean++; cu.tip = 0; cu.crowdBonus = 0; S.coneOn = false; cu.bfBroke = true
-  bfSay(cu, T.L.bf.brk, 'hot'); Snd.sfx('rage'); Snd.sfx('collar')
+  bfSay(cu, T.L.bf.brk, 'hot', 0); Snd.sfx('rage'); Snd.sfx('collar')
   play(cu.bf, 'attack-melee-right', 0.1, 1, true); cu.bf.lunge = 1; cu.bf.hold = true
   S.kick = { kind: 'pull', t: 0 }; S.lastKick = 'pull'; fx.shake(0.05, 0.5)
-  ono(T.collarO, P.tip.clone().add(_q.set(-0.3, 0.3, -0.1)), 'red', { size: 40, life: 1.2 })
+  ono(T.collarO, P.tip.clone().add(_q.set(-0.3, 0.3, -0.1)), 'red', { size: 38, prio: 0, sub: `${T.penO.bf} −¥${(D.YEN.clean + D.YEN.ice).toLocaleString('en-US')}` })
   coneTo(cu); crowdScatter()
-  later(0.9, () => { if (S.mode === 'play') bossSay(pick(T.bossBroke)) })
   finish(cu, 'broke')
 }
 function finish(cu, how) {
@@ -898,20 +905,19 @@ function finish(cu, how) {
     let just = false
     if (cu.k === 'president') {
       const ideal = cu.def.ideal, y = cu.teases >= ideal ? D.YEN.presBig : D.YEN.presSmall
-      S.money.pres += y; custSay(cu, cu.teases >= ideal ? L.just : L.good, '', 2.4)
-      ono(`+¥${y.toLocaleString('en-US')}`, headPos(cu.c, _v2).clone().add(_q.set(0, 0.3, 0)), 'yel', { size: 40, life: 1.6, rot: 0 })
+      S.money.pres += y; custSay(cu, cu.teases >= ideal ? L.just : L.good, '')
+      ono(`+¥${y.toLocaleString('en-US')}`, headPos(cu.c, _v2).clone().add(_q.set(0, 0.3, 0)), 'yel', { size: 34, rot: 0 })
       Snd.sfx('fanfare'); fx.moment(P.tip.clone(), { burst: { count: 60, color: 0xffd166, speed: 2.2 }, shake: [0.02, 0.3], hitstop: 0 })
       photoMoment(9)
     } else {
       just = how === 'cap' || (cu.teases > 0 && (cu.left === 0 || (cu.bf && cu.bfLeft === 0)))
       if (just) { cu.tip += D.YEN.just; S.money.just++ }
-      if (cu.bf) { cu.tip *= 2; cu.crowdBonus = (cu.crowdBonus || 0) * 2; S.money.just += just ? 1 : 0; later(0.5, () => { bfSay(cu, TT().L.bf.ok, ''); if (cu.tip) ono(TT().coupleO, headPos(cu.c, _v2).clone().add(_q.set(-0.3, 0.45, 0)), 'pink', { size: 26, life: 1.2, rot: 0 }) }) }
-      custSay(cu, how === 'cap' ? L.cap : cu.teases === 0 ? L.meh : just ? L.just : L.good, '', 2)
-      if (cu.teases === 0 && R() < 0.6) later(0.7, () => { if (S.mode === 'play') bossSay(pick(T.bossQuick)) })
-      if (cu.tip) ono(`+¥${cu.tip + (cu.crowdBonus || 0)}`, headPos(cu.c, _v2).clone().add(_q.set(0, 0.25, 0)), 'yel', { size: just ? 36 : 28, life: 1.3, rot: 0 })
+      if (cu.bf) { cu.tip *= 2; cu.crowdBonus = (cu.crowdBonus || 0) * 2; S.money.just += just ? 1 : 0 }
+      custSay(cu, how === 'cap' ? L.cap : cu.teases === 0 ? L.meh : just ? L.just : L.good, '')
+      if (cu.tip) ono(`+¥${(cu.tip + (cu.crowdBonus || 0)).toLocaleString('en-US')}`, headPos(cu.c, _v2).clone().add(_q.set(0, 0.25, 0)), 'yel', { size: 30, rot: 0, sub: cu.bf ? T.coupleO : '' })
     }
     S.money.tips += cu.tip; S.money.crowd += cu.crowdBonus || 0
-    if (CROWD.length) { Snd.sfx('clap', { n: CROWD.length }); crowdSay(pick(T.crowdOo)) }
+    if (CROWD.length) Snd.sfx('clap', { n: CROWD.length })
     if (cu.tip || cu.k === 'president') Snd.sfx('coin')
     play(cu.c, cu.teases ? 'jump' : 'idle', 0.15, 1, cu.teases > 0)
   }
@@ -958,12 +964,12 @@ function closedDown(cu) {
   crowdScatter()
   S.closed = true; cu.done = 'closed'; cu.st = 'done'; setEmo(cu)
   const T = TT()
-  custSay(cu, T.L.president.closed, 'hot', 3)
-  later(0.9, () => { guardSay(T.L.guard.closed, 2.4) })
+  custSay(cu, T.L.president.closed, 'hot', 0, 0)
+  later(0.9, () => { guardSay(T.L.guard.closed, 0, 0) })
   later(1.7, () => {
     if (S.mode !== 'play') return
     Snd.sfx('shutter'); S.shutT = 0; shutterMesh.visible = true; $('#shutter b').textContent = S.lang === 'ja' ? '閉店' : 'CLOSED'
-    later(0.75, () => { fx.shake(0.07, 0.6); bossSay(T.bossClosed, 2.5) })
+    later(0.75, () => { fx.shake(0.07, 0.6) })
   })
   photoMoment(10)
   later(4.2, () => endShift())
@@ -972,9 +978,9 @@ function incident(cu) {
   crowdScatter()
   S.incident = true; cu.done = 'broke'; cu.st = 'done'; setEmo(cu); S.coneOn = false
   const T = TT()
-  custSay(cu, T.L.president.brk, 'cry', 2.6); Snd.sfx('cry', { p: 0.6 })
-  ono(T.brokeO.president, headPos(cu.c, _v2).clone().add(_q.set(0, 0.35, 0)), 'red', { size: 40, life: 2 })
-  later(0.7, () => guardSay(T.L.guard.brk, 2.2))
+  custSay(cu, T.L.president.brk, 'cry', 0, 0); Snd.sfx('cry', { p: 0.6 })
+  ono(T.brokeO.president, headPos(cu.c, _v2).clone().add(_q.set(0, 0.35, 0)), 'red', { size: 34, prio: 0, sub: `−¥${D.YEN.incident.toLocaleString('en-US')}` })
+  later(0.7, () => guardSay(T.L.guard.brk, 0, 0))
   fx.shake(0.05, 0.6); play(cu.c, 'crouch', 0.2)
   coneTo(cu)
   later(3.2, () => endShift())
@@ -1003,7 +1009,7 @@ function updateGame(dt) {
 function endShift() {
   if (S.ended) return
   S.ended = true; S.mode = 'end'; S.endT = 0; Snd.sfx('end'); Snd.setTrack('end')
-  if (!S.closed) bossSay(TT().bossEnd, 3)
+  if (!S.closed) bossSay(TT().bossEnd, 0, 0)
   $('#hint').hidden = true; $('#finger').hidden = true; $('#ctl').style.visibility = 'hidden'
   if (!S.photo) S.doCap = true
 }
@@ -1022,6 +1028,7 @@ function updateTutorial() {
   else if (cu.ph === 'lunge' && !cu.moved) { txt = isTouch ? T.tutPull : T.tutPullPC; el = '#dpad'; now = true }
   else if (cu.ph === 'wind') txt = isTouch ? T.tutWind : T.tutWindPC
   else txt = cu.teases ? T.tutMore : T.tutWatch
+  if (TXT.ju.cur) { txt = ''; el = null }   // 判定が出ている間は案内を引っ込める（文字は同時に2つまで）
   h.hidden = !txt; if (txt && h.textContent !== txt) h.textContent = txt; h.classList.toggle('now', now)
   for (const b of ['#dpad', '#bGive']) $(b).classList.toggle('flash', b === el)
   if (el && isTouch) { const r = $(el).getBoundingClientRect(); fg.hidden = false; fg.style.transform = `translate(${r.left + r.width / 2 - 14}px,${r.top - 44}px)` } else fg.hidden = true
@@ -1092,6 +1099,8 @@ function updateScene(dt) {
     // 震え（限界）
     if (c.warn && cu.st === 'ready') c.root.position.x = Math.sin(S.time * 50) * 0.012 / g.scale.x; else c.root.position.x = 0
     if (cu.slap) { cu.slap = Math.max(0, cu.slap - dt * 2) }
+    // 本物の伸ばしの合図アイコン（!、両手は!!）
+    if (cu.tellIconT > 0) { cu.tellIconT -= dt; c.emo.visible = true; c.emo.material.map = emoTex(cu.tellIcon); if (cu.tellIconT <= 0) setEmo(cu) }
     // 表情マーク
     if (c.emo.visible) { headPos(c, c.emo.position); c.emo.position.add(_q.set(0.32 * c.h / CH, 0.0, 0)); const pulse = 1 + Math.sin(S.time * (c.warn ? 14 : 5)) * 0.1; c.emo.scale.setScalar(0.3 * pulse * Math.max(0.75, c.h / CH)) }
     if (cu.guards) for (const gd of cu.guards) { gd.mixer.update(dt); if (gd.emo.visible) { headPos(gd, gd.emo.position); gd.emo.position.x -= 0.3; gd.emo.scale.setScalar(0.3 * (1 + Math.sin(S.time * 14) * 0.1)) } if (gd.isBf && gd.warn && cu.st === 'ready') gd.root.position.x = Math.sin(S.time * 50) * 0.012 / gd.g.scale.x }
@@ -1171,7 +1180,7 @@ function resetRun(seed) {
 function startRun(seed) {
   Snd.init(); Snd.sfx('tap')
   resetRun(seed)
-  S.mode = 'play'; show('vPlay'); Snd.setTrack('play')
+  S.mode = 'play'; show('vPlay'); Snd.setTrack('play'); S.txtLog = []
   fillLine(); placeLine(false)
   for (const cu of LINE) { const [x, z] = [cu.tx, cu.tz]; cu.c.g.position.set(x + 2.2, 0, z + 0.8) }
   nextCustomer()
@@ -1343,9 +1352,11 @@ window.TI = {
     // 今の客まで飛ばす（並んでいる客を入れ替える）
     crowd() { return CROWD.filter(m => m.st !== 'out').length },
     crowdMult,
+    texts() { return [...document.querySelectorAll('#fx > *')].length + (document.querySelector('#hint').hidden ? 0 : 1) },
+    txtLog() { return (S.txtLog || []).map(it => ({ ch: it.kind, text: it.text, sub: it.sub || '', life: +it.life.toFixed(2), min: +it.min.toFixed(2), shown: it.shown != null ? +it.shown.toFixed(2) : null, prio: it.prio })) },
     addCrowd(n = 1) { for (let k = 0; k < n; k++) addCrowd() },
     skipTo(i) {
-      clearPeople(); clearHandCones(); S.wary = false; signFall.visible = false; TIMERS.length = 0; S.ci = i; S.coneOn = true; S.spot = 'C'; S.spotT = 1; S.lastStolen = false
+      clearPeople(); clearHandCones(); clearFx(); S.wary = false; signFall.visible = false; TIMERS.length = 0; S.ci = i; S.coneOn = true; S.spot = 'C'; S.spotT = 1; S.lastStolen = false
       fillLine(); placeLine(true); nextCustomer(); if (CUR) { CUR.c.g.position.set(CUR.tx, 0, CUR.tz); placeLine(true) }
       for (let k = 0; k < 3; k++) step()
     },
