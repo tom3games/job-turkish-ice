@@ -31,7 +31,7 @@ window.TI_DATA = {
   T: {
     ja: {
       badge: '1日だけ職場体験 #3', logo: 'トルコ<b>アイス屋</b>', start: '出勤する', how: '遊び方', back: 'もどる',
-      bossName: 'マスター', lead: 'トルコアイスはな、客をからかってナンボや。でも泣かしたらあかん。大統領が来ても、すぐ渡したらあかんで。',
+      bossName: 'マスター', lead: 'トルコアイスはな、客をからかってナンボや。でも泣かしたらあかん。',
       howT: '遊び方',
       how1: '<b>差し出す</b>でアイスを出す。客が<b>手を伸ばしたら引っ込める</b>。かわすたびにチップが増える',
       how2: '遊びすぎると<b>泣く・キレる</b>（チップ0でおわびのアイス）。<b>顔と一言</b>が限界の合図。いい塩梅で<b>渡す</b>',
@@ -63,7 +63,7 @@ window.TI_DATA = {
     },
     en: {
       badge: 'ONE-DAY JOB #3', logo: 'TURKISH <b>ICE CREAM</b>', start: 'Clock in', how: 'How to play', back: 'Back',
-      bossName: 'Master', lead: 'Turkish ice cream is all about teasing the customer. But never make them cry. And if the President comes, don\'t hand it over right away.',
+      bossName: 'Master', lead: 'Turkish ice cream is all about teasing the customer. But never make them cry.',
       howT: 'How to play',
       how1: '<b>Offer</b> the cone. When they <b>reach for it, pull it back</b>. Every dodge adds a tip',
       how2: 'Tease too much and they <b>cry or snap</b> (no tip, free cone). Their <b>face and words</b> warn you. <b>Hand it over</b> at the right moment',

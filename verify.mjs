@@ -68,7 +68,7 @@ await t('OGP 一式がある（og:image は og.png）', async () => {
   expect(r.ok && /job-turkish-ice\/og\.png/.test(r.img), r)
 })
 await t('og.png が 1200x630 で置いてある', async () => { const r = await ev(p, async () => { const i = new Image(); i.src = 'og.png'; await i.decode(); return [i.naturalWidth, i.naturalHeight] }); expect(r[0] === 1200 && r[1] === 630, r); return r })
-await t('タイトル: 文言とマスター', async () => { const r = await ev(p, () => ({ logo: document.querySelector('.logo .main').textContent, lead: document.querySelector('[data-t=lead]').textContent })); expect(r.logo.includes('トルコ') && r.lead.includes('大統領'), r); return r.logo })
+await t('タイトル: 文言とマスター', async () => { const r = await ev(p, () => ({ logo: document.querySelector('.logo .main').textContent, lead: document.querySelector('[data-t=lead]').textContent })); expect(r.logo.includes('トルコ') && r.lead.includes('からかって') && !r.lead.includes('大統領'), r); return r.logo })
 await t('ゲージ（バー・メーター）が無い', async () => { const n = await ev(p, () => document.querySelectorAll('progress,meter,[class*=bar],[class*=gauge],[class*=meter]').length); expect(n === 0, n) })
 await t('遊び方: 3つの手順に 差し出す/引っ込める・泣く/キレる・大統領 が書いてある', async () => { await p.click('#bHow'); const r = await ev(p, () => document.querySelector('#vHow').textContent); await p.click('#bHowBack'); expect(/差し出す/.test(r) && /引っ込める/.test(r) && /泣く/.test(r) && /大統領/.test(r) && /閉店/.test(r), r.slice(0, 80)) })
 await t('出勤: 遊ぶ画面・3つのボタン（44px 以上）・時計と人数', async () => {
