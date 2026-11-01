@@ -13,14 +13,14 @@ await p.goto(`http://localhost:${PORT}/`); await p.waitForFunction(() => window.
 await p.evaluate(() => document.fonts.ready)
 const snap = async n => { await p.evaluate(() => TI.dbg.render()); await p.screenshot({ path: `${ROOT}/shots/dev-${tag}-${n}.png` }) }
 await snap('title')
-await p.evaluate(() => { TI.dbg.start(3); TI.dbg.pause(true); TI.dbg.step(150) })
-await snap('arrive')
-await p.evaluate(() => { TI.dbg.offer(); TI.dbg.step(20) }); await snap('offer')
-await p.evaluate(() => { TI.dbg.reachNow(); TI.dbg.step(8) }); await snap('wind')
-await p.evaluate(() => { TI.dbg.step(14) }); await snap('lunge')
-for (const [i, n] of [[1, 'kid'], [3, 'yankee'], [6, 'senju'], [11, 'pres']]) {
-  await p.evaluate(i => { TI.dbg.skipTo(i); TI.dbg.step(140); TI.dbg.offer(); TI.dbg.step(20); TI.dbg.reachNow(); TI.dbg.step(30) }, i)
-  await snap(n)
+await p.evaluate(() => { TI.dbg.start(3); TI.dbg.pause(true); TI.dbg.step(150) }); await snap('arrive')
+await p.evaluate(() => { TI.dbg.move('U'); TI.dbg.step(10); TI.dbg.reachNow(); TI.dbg.step(12) }); await snap('wind-up')
+await p.evaluate(() => { TI.dbg.toLunge(); TI.dbg.step(10) }); await snap('lunge-up')
+await p.evaluate(() => { TI.dbg.move('L'); TI.dbg.step(8) }); await snap('dodge-left')
+await p.evaluate(() => { TI.dbg.resolve(); TI.dbg.step(6) }); await snap('whiff')
+for (const [i, n] of [[3, 'yankee'], [6, 'senju'], [11, 'pres']]) {
+  await p.evaluate(i => { TI.S.tut = -1; TI.dbg.skipTo(i); let n = 0; while (TI.CUR.st !== 'ready' && n++ < 300) TI.dbg.tick(1); TI.dbg.move('R'); TI.dbg.step(10); TI.dbg.reachNow(); TI.dbg.step(10) }, i); await snap(n + '-wind')
+  await p.evaluate(() => { TI.dbg.toLunge(); TI.CUR && TI.dbg.step(Math.round(TI.CUR.pdur * 60 * 0.7)) }); await snap(n + '-lunge')
 }
 console.log(JSON.stringify(await p.evaluate(() => TI.state())), errs)
 await b.close(); server.kill()

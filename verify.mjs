@@ -69,77 +69,110 @@ await t('OGP 一式がある（og:image は og.png）', async () => {
 })
 await t('og.png が 1200x630 で置いてある', async () => { const r = await ev(p, async () => { const i = new Image(); i.src = 'og.png'; await i.decode(); return [i.naturalWidth, i.naturalHeight] }); expect(r[0] === 1200 && r[1] === 630, r); return r })
 await t('タイトル: 文言とマスター', async () => { const r = await ev(p, () => ({ logo: document.querySelector('.logo .main').textContent, lead: document.querySelector('[data-t=lead]').textContent })); expect(r.logo.includes('トルコ') && r.lead.includes('からかって') && !r.lead.includes('大統領'), r); return r.logo })
+await t('タイトル・遊び方・ページの説明（meta/OGP）に大統領の文字が無い（初見で驚かせる）', async () => { const r = await ev(p, () => { const T = TI.D.T; const txt = [document.querySelector('#vTitle').textContent, document.querySelector('#vHow').textContent, ...[...document.querySelectorAll('meta[name=description],meta[property^="og:"],meta[name^="twitter:"]')].map(m => m.content), T.ja.lead, T.ja.how1, T.ja.how2, T.ja.how3, T.en.lead, T.en.how1, T.en.how2, T.en.how3, ...Object.keys(T.ja).filter(k => /^tut/.test(k)).map(k => T.ja[k] + T.en[k])].join('|'); return /大統領|President/i.test(txt) ? txt.match(/.{0,20}(大統領|President).{0,20}/i)[0] : '' }); expect(!r, r) })
 await t('ゲージ（バー・メーター）が無い', async () => { const n = await ev(p, () => document.querySelectorAll('progress,meter,[class*=bar],[class*=gauge],[class*=meter]').length); expect(n === 0, n) })
-await t('遊び方: 3つの手順に 差し出す/引っ込める・泣く/キレる・大統領 が書いてある', async () => { await p.click('#bHow'); const r = await ev(p, () => document.querySelector('#vHow').textContent); await p.click('#bHowBack'); expect(/差し出す/.test(r) && /引っ込める/.test(r) && /泣く/.test(r) && /大統領/.test(r) && /閉店/.test(r), r.slice(0, 80)) })
-await t('出勤: 遊ぶ画面・3つのボタン（44px 以上）・時計と人数', async () => {
+await t('遊び方: 3つの手順に 十字キー・泣く/キレる。大統領のネタバレ（大統領・閉店）は書かない', async () => { await p.click('#bHow'); const r = await ev(p, () => document.querySelector('#vHow').textContent); await p.click('#bHowBack'); expect(/十字キー/.test(r) && /伸びてきた瞬間/.test(r) && /泣く/.test(r) && !/大統領|閉店/.test(r), r.slice(0, 200)) })
+await t('出勤: 遊ぶ画面・十字キー5つと渡す（44px 以上）・時計と人数', async () => {
   await p.click('#bStart'); await p.waitForTimeout(200)
-  const r = await ev(p, () => ({ mode: TI.S.mode, play: !document.querySelector('#vPlay').hidden, clock: document.querySelector('#hClock').textContent, n: document.querySelector('#hCust').textContent + document.querySelector('#hOf').textContent, btn: ['#bOffer', '#bPull', '#bGive'].map(s => Math.round(document.querySelector(s).getBoundingClientRect().width)) }))
-  expect(r.mode === 'play' && r.play && r.btn.every(w => w >= 44) && r.n === '1/12', r); return r
+  const r = await ev(p, () => ({ mode: TI.S.mode, play: !document.querySelector('#vPlay').hidden, n: document.querySelector('#hCust').textContent + document.querySelector('#hOf').textContent, btn: ['#dU', '#dD', '#dL', '#dR', '#dC', '#bGive'].map(s => Math.round(document.querySelector(s).getBoundingClientRect().width)), old: !!document.querySelector('#bOffer,#bPull') }))
+  expect(r.mode === 'play' && r.play && r.btn.every(w => w >= 44) && r.n === '1/12' && !r.old, r); return r
 })
-await t('1人目が歩いてきて注文を言う。チュートリアルは「差し出す」を指す', async () => {
-  const r = await ev(p, () => { TI.dbg.pause(true); TI.dbg.step(150); return { c: TI.dbg.cust(), hint: document.querySelector('#hint').textContent, hid: document.querySelector('#hint').hidden, flash: document.querySelector('#bOffer').classList.contains('flash') } })
-  expect(r.c.st === 'ready' && r.c.line && !r.hid && /差し出す/.test(r.hint) && r.flash, r); return { line: r.c.line, hint: r.hint }
+await t('1人目が歩いてきて注文を言う。アイスは真ん中、案内は「客の手をよく見る」', async () => {
+  const r = await ev(p, () => { TI.dbg.pause(true); let n = 0; while (TI.CUR.st !== 'ready' && n++ < 300) TI.dbg.step(1); TI.dbg.step(5); return { c: TI.dbg.cust(), hint: document.querySelector('#hint').textContent } })
+  expect(r.c.st === 'ready' && r.c.spot === 'C' && r.c.line && /手をよく見る/.test(r.hint), r); return { line: r.c.line, hint: r.hint }
 })
-await t('差し出す → 棒が出る。手が来る前に引っ込めても数えない', async () => {
-  const r = await ev(p, () => { TI.dbg.offer(); TI.dbg.step(20); const ext = TI.S.ext, ph = TI.CUR.ph; TI.dbg.pull(); TI.dbg.step(30); return { ext, ph, after: TI.dbg.cust() } })
-  expect(r.ext === 1 && r.ph === 'wait' && r.after.teases === 0 && r.after.ph === 'idle', r); return { ph: r.ph, teases: r.after.teases }
+await t('十字キー: 上で上へ、反対の下で真ん中へ戻る、上から左は左へ', async () => {
+  const r = await ev(p, () => { const out = []; for (const d of ['U', 'D', 'U', 'L', 'C']) { TI.dbg.move(d); TI.dbg.step(14); out.push(TI.S.spot) } TI.CUR.irk = 0; TI.CUR.idles = 0; return out })
+  expect(JSON.stringify(r) === '["U","C","U","L","C"]', r); return r
 })
-await t('手を構えた時（チュートリアルは赤で「今！引っ込める」）に引っ込めるとかわして +チップ・鐘', async () => {
-  const r = await ev(p, () => { const b0 = TI.Snd.played.bell || 0; TI.dbg.offer(); TI.dbg.step(20); TI.dbg.reachNow(); TI.dbg.step(4); const hint = document.querySelector('#hint').textContent, red = document.querySelector('#hint').classList.contains('now'); TI.dbg.pull(); TI.dbg.resolve(); TI.dbg.step(30); return { hint, red, c: TI.dbg.cust(), bell: (TI.Snd.played.bell || 0) - b0, teases: TI.S.money.teases } })
-  expect(/今/.test(r.hint) && r.red && r.c.teases === 1 && r.c.tip === 150 && r.bell === 1 && r.teases === 1, r); return { line: r.c.line, tip: r.c.tip }
+await t('手を構えたら狙いを決め、伸び始めた瞬間に十字キーで逃がすと「スカッ」+150円・鐘（赤の「今！」案内）', async () => {
+  const r = await ev(p, () => { const b0 = TI.Snd.played.bell || 0; TI.dbg.toLunge(); TI.dbg.step(1); const hint = document.querySelector('#hint').textContent, red = document.querySelector('#hint').classList.contains('now'); TI.dbg.move(TI.dbg.dodgeDir()); TI.dbg.resolve(); TI.dbg.step(30); return { hint, red, c: TI.dbg.cust(), bell: (TI.Snd.played.bell || 0) - b0 } })
+  expect(/今/.test(r.hint) && r.red && r.c.teases === 1 && r.c.tip === 150 && r.bell === 1, r); return { line: r.c.line, tip: r.c.tip }
 })
-await t('手が伸びてくる途中で引っ込めると「ギリギリ」で1.5倍', async () => {
-  const r = await ev(p, () => { TI.dbg.offer(); TI.dbg.step(20); TI.dbg.reachNow(); TI.dbg.step(2); while (TI.CUR.ph === 'wind') TI.dbg.step(1); TI.dbg.step(2); TI.dbg.pull(); TI.dbg.resolve(); TI.dbg.step(30); return { c: TI.dbg.cust(), close: TI.S.money.close } })
+await t('手が伸びきる寸前に逃がすと「ギリギリ」で1.5倍', async () => {
+  const r = await ev(p, () => { TI.dbg.dodge(true); return { c: TI.dbg.cust(), close: TI.S.money.close } })
   expect(r.c.teases === 2 && r.close === 1 && r.c.tip === 150 + 225, r); return r.c.tip
 })
 await t('限界の手前で顔（マーク）と一言が変わり、そこで渡すと「ちょうどいい」手当', async () => {
   const r = await ev(p, () => {
-    const c = TI.CUR; while (c.left > 0) { TI.dbg.offer(); TI.dbg.step(20); TI.dbg.reachNow(); TI.dbg.step(3); TI.dbg.pull(); TI.dbg.resolve(); TI.dbg.step(30) }
+    const c = TI.CUR; while (c.left > 0) TI.dbg.dodge(false)
     const warn = { emo: TI.dbg.cust().emo, line: TI.dbg.cust().line, hint: document.querySelector('#hint').textContent, flash: document.querySelector('#bGive').classList.contains('flash') }
     const just0 = TI.S.money.just; TI.dbg.give(); TI.dbg.step(40)
-    return { warn, done: TI.dbg.cust() && TI.dbg.cust().done, just: TI.S.money.just - just0, tips: TI.S.money.tips, tut: TI.S.tut }
+    return { warn, done: TI.dbg.cust() && TI.dbg.cust().done, just: TI.S.money.just - just0, tut: TI.S.tut }
   })
   expect(r.warn.emo === 'anger' && /もうええって|そろそろ/.test(r.warn.line) && /渡す/.test(r.warn.hint) && r.warn.flash && r.done === 'given' && r.just === 1 && r.tut === -1, r); return r
 })
-await t('次の客が並びから前へ来る（2人目=子ども）', async () => { const r = await ev(p, () => { TI.dbg.step(200); return TI.dbg.cust() }); expect(r && r.i === 1 && r.k === 'kid' && r.st === 'ready', r); return r.line })
+await t('次の客が並びから前へ来る（2人目=子ども）', async () => { const r = await ev(p, () => { TI.dbg.step(120); let n = 0; while (TI.CUR.st !== 'ready' && n++ < 300) TI.dbg.step(1); return TI.dbg.cust() }); expect(r && r.i === 1 && r.k === 'kid' && r.st === 'ready', r); return r.line })
 await t('子どもは2回目で限界のマーク（涙）、超えるとギャン泣き・チップ0・おわびのアイス', async () => {
   const r = await ev(p, () => {
     const c = TI.CUR; c.pat = c.left = 1
-    TI.dbg.offer(); TI.dbg.step(20); TI.dbg.reachNow(); TI.dbg.step(3); TI.dbg.pull(); TI.dbg.resolve(); TI.dbg.step(30); const warn = TI.dbg.cust().emo
+    TI.dbg.dodge(false); const warn = TI.dbg.cust().emo
     const b0 = TI.S.money.broke, cry0 = TI.Snd.played.cry || 0
-    TI.dbg.offer(); TI.dbg.step(20); TI.dbg.reachNow(); TI.dbg.step(3); TI.dbg.pull(); TI.dbg.resolve(); TI.dbg.step(20)
+    TI.dbg.toLunge(); TI.dbg.move(TI.dbg.dodgeDir()); TI.dbg.resolve(); TI.dbg.step(10)
     return { warn, c: TI.dbg.cust(), broke: TI.S.money.broke - b0, cry: (TI.Snd.played.cry || 0) - cry0, ono: [...document.querySelectorAll('#fx .ono')].map(e => e.textContent).join('|') }
   })
   expect(r.warn === 'tear' && r.c.done === 'broke' && r.c.tip === 0 && r.broke === 1 && r.cry >= 1 && /ギャン泣き/.test(r.ono), r); return { line: r.c.line }
 })
-await t('引っ込めないと取られる（アイス代を引く）', async () => {
-  const r = await ev(p, () => { TI.dbg.step(200); const s0 = TI.S.money.stolen; TI.dbg.offer(); TI.dbg.step(20); TI.dbg.reachNow(); TI.dbg.resolve(); TI.dbg.step(5); return { c: TI.dbg.cust(), stolen: TI.S.money.stolen - s0 } })
+const READY = `let n = 0; while (TI.CUR.st !== 'ready' && n++ < 400) TI.dbg.tick(1)`
+await t('【本人の指摘】手を構えてから同じ場所に置いたままだと、避けた判定にならず取られる', async () => {
+  const r = await ev(p, R => {
+    const out = []
+    TI.dbg.skipTo(4); eval(R)
+    TI.dbg.reachNow(); TI.dbg.step(3); TI.dbg.move('U'); TI.dbg.resolve(); TI.dbg.step(5); out.push(TI.dbg.cust())
+    TI.dbg.skipTo(8); eval(R)
+    TI.dbg.resolve(); TI.dbg.step(5); out.push(TI.dbg.cust())
+    return out
+  }, READY)
+  expect(r.every(c => c.done === 'stolen' && c.teases === 0), r); return r.map(c => c.done + '@' + c.spot)
+})
+await t('構えの間に連打しても稼げない（狙い直して手が遅れ、イライラでヤンキーは2回でキレる）', async () => {
+  const r = await ev(p, R => {
+    TI.dbg.skipTo(3); eval(R)
+    const lines = [], dirs = ['U', 'L', 'R', 'D']; let k = 0
+    for (let i = 0; i < 60 * 12 && TI.CUR && TI.CUR.st === 'ready'; i++) { if (i % 6 === 0) TI.dbg.move(dirs[k++ % 4]); TI.dbg.tick(1); if (TI.CUR.lastLine !== lines.at(-1)) lines.push(TI.CUR.lastLine) }
+    return { c: TI.dbg.cust(), lines }
+  }, READY)
+  expect(r.c.done === 'broke' && r.c.teases === 0 && r.c.tip === 0 && r.c.idles === 2 && r.lines.length >= 3, r); return r.lines
+})
+await t('動かさないと取られる（アイス代を引く）', async () => {
+  const r = await ev(p, R => { TI.dbg.skipTo(2); eval(R); const s0 = TI.S.money.stolen; TI.dbg.resolve(); TI.dbg.step(5); return { c: TI.dbg.cust(), stolen: TI.S.money.stolen - s0 } }, READY)
   expect(r.c.k === 'granny' && r.c.done === 'stolen' && r.stolen === 1, r); return r.c.line
 })
 await t('おばあちゃんは何回遊んでも笑う（7回で満足して帰る・ちょうどいい手当）', async () => {
-  const r = await ev(p, () => { TI.dbg.skipTo(2); TI.dbg.step(150); const lines = []; for (let k = 0; k < 7 && TI.CUR.st === 'ready'; k++) { TI.dbg.offer(); TI.dbg.step(20); TI.dbg.reachNow(); TI.dbg.step(3); TI.dbg.pull(); TI.dbg.resolve(); TI.dbg.step(30); lines.push(TI.dbg.cust().line) } return { c: TI.dbg.cust(), lines } })
+  const r = await ev(p, R => { TI.dbg.skipTo(2); eval(R); const lines = []; for (let k = 0; k < 7 && TI.CUR.st === 'ready'; k++) { TI.dbg.dodge(false); lines.push(TI.dbg.cust().line) } return { c: TI.dbg.cust(), lines } }, READY)
   expect(r.c.done === 'cap' && r.c.teases === 7 && r.c.tip === 7 * 70 + 300, r); return r.lines.slice(-2)
 })
-await t('何もしないと「まだ？」→ 限界で帰る（ヤンキーは2回でキレる）', async () => {
-  const r = await ev(p, () => { TI.dbg.skipTo(3); TI.dbg.step(150); const lines = []; for (let i = 0; i < 60 * 14 && TI.CUR && TI.CUR.st === 'ready'; i++) { TI.dbg.tick(1); if (TI.CUR.lastLine !== lines.at(-1)) lines.push(TI.CUR.lastLine) } return { c: TI.dbg.cust(), lines } })
-  expect(r.c.done === 'broke' && r.c.idles === 2 && r.lines.length >= 3, r); return r.lines
+await t('千手観音: 金色で腕12本。2〜3か所を同時に狙い、空いている場所が必ず残る（60回）', async () => {
+  const r = await ev(p, R => {
+    TI.dbg.skipTo(6); eval(R)
+    const c = TI.CUR, sizes = {}, frees = []
+    for (let i = 0; i < 60; i++) { TI.dbg.set({ spot: ['C', 'U', 'D', 'L', 'R'][i % 5], spotT: 1 }); TI.dbg.reachNow(); TI.dbg.toLunge(); sizes[c.aim.length] = (sizes[c.aim.length] || 0) + 1; frees.push(TI.dbg.free().length); c.ph = 'idle'; c.irk = 0; c.idles = 0 }
+    return { arms: c.c.arms.length, gold: c.c.root.getObjectByProperty('isSkinnedMesh', true).material.metalness, sizes, minFree: Math.min(...frees), hands: c.c.grab.length }
+  }, READY)
+  expect(r.arms === 12 && r.gold > 0.5 && r.minFree >= 2 && Object.keys(r.sizes).every(s => s === '2' || s === '3') && r.hands === 4, r); return r
 })
-await t('千手観音は金色で腕が12本、手を出すのが速い', async () => {
-  const r = await ev(p, () => { TI.dbg.skipTo(6); TI.dbg.step(150); const c = TI.CUR; return { k: c.k, arms: c.c.arms.length, wind: c.def.wind, normal: TI.D.KINDS.normal.wind, gold: c.c.root.getObjectByProperty('isSkinnedMesh', true).material.metalness } })
-  expect(r.k === 'senju' && r.arms === 12 && r.wind < r.normal && r.gold > 0.5, r); return r
+await t('千手観音: 空いている場所へ逃げればかわせる、狙われている別の場所へ動くと取られる', async () => {
+  const r = await ev(p, () => {
+    const c = TI.CUR; TI.dbg.dodge(false); const t1 = c.teases
+    TI.dbg.toLunge(); const aimed = c.aim.find(x => x !== TI.S.spot); TI.dbg.set({ spot: aimed, spotT: 1 }); TI.dbg.resolve(); TI.dbg.step(5)
+    return { t1, done: c.done, aim: c.aim, spot: TI.S.spot }
+  })
+  expect(r.t1 === 1 && r.done === 'stolen', r); return r
 })
+await t('大統領は手が速い（構え・伸ばす・手を出すまでがふつうの客より短い）', async () => { const r = await ev(p, () => { const K = TI.D.KINDS; return [K.president.wind < K.normal.wind, K.president.lunge < K.normal.lunge, K.president.reach[1] < K.normal.reach[1]] }); expect(r.every(Boolean), r) })
 await t('大統領: ボディガードが「すぐ渡せよ？」→ 1回で渡すと閉店（シャッター・明細のハンコも閉店）', async () => {
-  const r = await ev(p, () => { TI.dbg.skipTo(11); TI.dbg.step(160); const b = [...document.querySelectorAll('#fx .sb.guard')].map(e => e.textContent).join('|'); const boss = document.querySelector('#vignette').classList.contains('boss'); TI.dbg.give(); TI.dbg.step(60 * 3); const shutter = document.querySelector('#shutter').style.height; TI.dbg.step(60 * 5); return { b, boss, closed: TI.S.closed, shutter, mode: TI.S.mode } })
+  const r = await ev(p, () => { TI.dbg.skipTo(11); let n = 0; while (TI.CUR.st !== 'ready' && n++ < 400) TI.dbg.step(1); TI.dbg.step(60); const b = [...document.querySelectorAll('#fx .sb.guard')].map(e => e.textContent).join('|'); const boss = document.querySelector('#vignette').classList.contains('boss'); TI.dbg.give(); TI.dbg.step(60 * 3); const shutter = document.querySelector('#shutter').style.height; TI.dbg.step(60 * 5); return { b, boss, closed: TI.S.closed, shutter, mode: TI.S.mode } })
   await p.waitForFunction(() => TI.S.mode === 'result', null, { timeout: 5000 }).catch(() => {})
   const r2 = await ev(p, () => ({ mode: TI.S.mode, stamp: TI.S.result && TI.S.result.rank.st.ja, ded: TI.S.result && TI.S.result.slip.ded.map(d => d.label + d.note + d.yen) }))
   expect(/すぐ渡せよ/.test(r.b) && r.boss && r.closed && r.shutter === '100%' && r2.mode === 'result' && r2.stamp === '閉店' && r2.ded.some(d => /閉店30000/.test(d)), { r, r2 }); return r2
 })
-await t('大統領: 3回以上遊んでから渡すと大統領チップ。ガードの脅しは回数で変わる', async () => {
-  const r = await ev(p, () => { TI.dbg.start(2); TI.dbg.pause(true); TI.S.tut = -1; TI.dbg.skipTo(11); TI.dbg.step(160); const g = []; for (let k = 0; k < 4; k++) { TI.dbg.offer(); TI.dbg.step(20); TI.dbg.reachNow(); TI.dbg.step(3); TI.dbg.pull(); TI.dbg.resolve(); TI.dbg.step(30); g.push([...document.querySelectorAll('#fx .sb.guard')].map(e => e.textContent).join('')) } TI.dbg.give(); TI.dbg.step(30); return { g, pres: TI.S.money.pres, closed: TI.S.closed } })
+const presReady = `TI.dbg.start(2); TI.dbg.pause(true); TI.S.tut = -1; TI.dbg.skipTo(11); let n = 0; while (TI.CUR.st !== 'ready' && n++ < 400) TI.dbg.step(1)`
+await t('大統領: 3回以上かわしてから渡すと大統領チップ。ガードの脅しは回数で変わる', async () => {
+  const r = await ev(p, js => { eval(js); const g = []; for (let k = 0; k < 4; k++) { TI.dbg.dodge(false); g.push([...document.querySelectorAll('#fx .sb.guard')].map(e => e.textContent).join('')) } TI.dbg.give(); TI.dbg.step(30); return { g, pres: TI.S.money.pres, closed: TI.S.closed } }, presReady)
   expect(r.pres === 5000 && !r.closed && new Set(r.g).size >= 3, r); return r
 })
 await t('大統領: 遊びすぎると国際問題', async () => {
-  const r = await ev(p, () => { TI.dbg.start(2); TI.dbg.pause(true); TI.S.tut = -1; TI.dbg.skipTo(11); TI.dbg.step(160); for (let k = 0; k < 8 && TI.CUR.st === 'ready'; k++) { TI.dbg.offer(); TI.dbg.step(20); TI.dbg.reachNow(); TI.dbg.step(3); TI.dbg.pull(); TI.dbg.resolve(); TI.dbg.step(30) } TI.dbg.step(60 * 6); return { inc: TI.S.incident, closed: TI.S.closed, mode: TI.S.mode } })
+  const r = await ev(p, js => { eval(js); for (let k = 0; k < 8 && TI.CUR.st === 'ready'; k++) TI.dbg.dodge(false); TI.dbg.step(60 * 6); return { inc: TI.S.incident, closed: TI.S.closed, mode: TI.S.mode } }, presReady)
   await p.waitForFunction(() => TI.S.mode === 'result', null, { timeout: 5000 }).catch(() => {})
   const r2 = await ev(p, () => TI.S.result && TI.S.result.slip.ded.map(d => d.label + d.note))
   expect(r.inc && !r.closed && r2 && r2.some(d => /国際問題/.test(d)), { r, r2 }); return r2
@@ -158,13 +191,14 @@ await t('もう一回: 状態が初期化される', async () => { await p.click
 await p.addScriptTag({ path: ROOT + '/bot.js' })
 const day = (o, seed) => ev(p, ([o, seed]) => { TI.dbg.start(seed); TI.dbg.pause(true); TI.S.tut = -1; TIBot.run(60 * 400, o); TI.dbg.tick(500); const r = TI.calcResult(); return { net: r.net, stamp: r.rank.st.ja.replace('\n', ''), m: TI.S.money, mode: TI.S.mode } }, [o, seed])
 const D = {}
-await t('自動プレイ: 上手い人（手が来たら0.2〜0.3秒で引っ込め、限界の合図で渡す）', async () => { const r = D.skill = await day({ rt: [12, 18], give: 'skill' }, 7); expect(r.stamp === '看板職人' && r.m.stolen <= 1 && r.m.broke === 0, r); return r })
+await t('自動プレイ: 上手い人（手が伸びたら0.2〜0.27秒で空いた場所へ、限界の合図で渡す）', async () => { const r = D.skill = await day({ rt: [12, 16], give: 'skill' }, 7); expect(r.stamp === '看板職人' && r.m.stolen <= 1 && r.m.broke === 0, r); return r })
 await t('自動プレイ: すぐ渡す人は大統領で閉店', async () => { const r = D.quick = await day({ give: 'quick' }, 7); expect(r.stamp === '閉店' && r.net < 0, r); return r })
-await t('自動プレイ: 遊びすぎる人は泣かせまくってクビ', async () => { const r = D.greedy = await day({ rt: [12, 18], give: 'greedy' }, 7); expect(r.stamp === 'クビ' && r.m.broke >= 8, r); return r })
-await t('自動プレイ: 何もしない通しは最低のハンコ（クビ）', async () => { const r = D.nothing = await day({ nothing: true }, 7); expect(r.stamp === 'クビ' && r.m.teases === 0, r); return r })
-await t('手取りが 上手い > ふつう > 遊びすぎ・何もしない・すぐ渡す で分かれる', async () => { const avg = D.avg = await day({ rt: [12, 30], give: 'random' }, 8); const ok = D.skill.net > avg.net && avg.net > D.greedy.net && D.skill.net - D.greedy.net > 15000; expect(ok, { skill: D.skill.net, avg: avg.net, greedy: D.greedy.net, nothing: D.nothing.net, quick: D.quick.net }); return { skill: D.skill.net, avg: avg.net, greedy: D.greedy.net, nothing: D.nothing.net, quick: D.quick.net } })
-await t('画面タップでも 差し出す⇔引っ込める', async () => { const r = await ev(p, () => { TI.dbg.start(3); TI.dbg.pause(true); TI.S.tut = -1; TI.dbg.step(150); const c = document.querySelector('#gl'); c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true })); TI.dbg.step(20); const a = TI.S.want; c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true })); TI.dbg.step(5); return [a, TI.S.want] }); expect(r[0] === 1 && r[1] === 0, r); return r })
-await t('キーボード: ↑で差し出す・↓で引っ込める・Spaceで渡す', async () => { await p.keyboard.press('ArrowUp'); const a = await ev(p, () => { TI.dbg.step(5); return TI.S.want }); await p.keyboard.press('ArrowDown'); const b = await ev(p, () => { TI.dbg.step(5); return TI.S.want }); await p.keyboard.press('Space'); const c = await ev(p, () => { TI.dbg.step(30); return TI.dbg.cust().done }); const dbg = await ev(p, () => ({ giving: TI.S.giving, cust: TI.dbg.cust(), focus: document.activeElement.id, mode: TI.S.mode })); expect(a === 1 && b === 0 && c === 'given', [a, b, c, dbg]); return [a, b, c] })
+await t('自動プレイ: 遊びすぎる人は泣かせまくってクビ', async () => { const r = D.greedy = await day({ rt: [12, 16], give: 'greedy' }, 7); expect(r.stamp === 'クビ' && r.m.broke >= 8, r); return r })
+await t('自動プレイ: 十字キーを連打し続ける人はチップ0でクビ', async () => { const r = D.spam = await day({ spam: 5 }, 7); expect(r.stamp === 'クビ' && r.m.tips === 0, r); return r })
+await t('自動プレイ: 何もしない通しは最低のハンコ（クビ）', async () => { const r = D.nothing = await day({ nothing: true }, 7); expect(r.stamp === 'クビ' && r.m.teases === 0 && r.m.stolen === 12, r); return r })
+await t('手取りが 上手い > ふつう > 遊びすぎ・連打・何もしない・すぐ渡す で分かれる', async () => { const avg = D.avg = await day({ rt: [12, 24], give: 'random' }, 8); const o = { skill: D.skill.net, avg: avg.net, greedy: D.greedy.net, spam: D.spam.net, nothing: D.nothing.net, quick: D.quick.net }; expect(D.skill.net > avg.net && avg.net > Math.max(D.greedy.net, D.spam.net, D.nothing.net, D.quick.net) && D.skill.net - Math.max(D.greedy.net, D.nothing.net, D.spam.net) > 15000, o); return o })
+await t('画面をスワイプしても動かせる（上・左）', async () => { const r = await ev(p, () => { TI.dbg.start(3); TI.dbg.pause(true); TI.S.tut = -1; let n = 0; while (TI.CUR.st !== 'ready' && n++ < 300) TI.dbg.step(1); const c = document.querySelector('#gl'), sw = (x0, y0, x1, y1) => { c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: x0, clientY: y0 })); window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: x1, clientY: y1 })) }; sw(200, 400, 200, 330); const a = TI.S.spot; sw(200, 400, 120, 405); return [a, TI.S.spot] }); expect(r[0] === 'U' && r[1] === 'L', r); return r })
+await t('キーボード: 左にある時に→で真ん中、↑で上、Spaceで渡す', async () => { await p.keyboard.press('ArrowRight'); const a = await ev(p, () => { TI.dbg.step(5); return TI.S.spot }); await p.keyboard.press('ArrowUp'); const b = await ev(p, () => { TI.dbg.step(5); return TI.S.spot }); await p.keyboard.press('Space'); const c = await ev(p, () => { TI.dbg.step(30); return TI.dbg.cust().done }); expect(a === 'C' && b === 'U' && c === 'given', [a, b, c]); return [a, b, c] })
 await t('ここまでエラーなし', async () => { expect(p.errs.length === 0, p.errs.join('|')) })
 await p.close()
 
@@ -176,10 +210,11 @@ for (const [w, h, name] of SIZES) {
   await q.click('#bHow'); views.how = await fit(q); await q.screenshot({ path: `${ROOT}/shots/fit-${name}-how.png` }); await q.click('#bHowBack')
   await q.click('#bMoreT'); views.more = await fit(q); await q.click('#bMoreX')
   await q.click('#bStart'); await q.waitForTimeout(150)
-  await q.evaluate(() => { TI.dbg.pause(true); TI.dbg.step(150); TI.dbg.offer(); TI.dbg.step(20); TI.dbg.reachNow(); TI.dbg.step(10) })
+  await q.evaluate(() => { TI.dbg.pause(true); let n = 0; while (TI.CUR.st !== 'ready' && n++ < 300) TI.dbg.step(1); TI.dbg.toLunge(); TI.dbg.step(2) })
   views.play = await fit(q); await q.screenshot({ path: `${ROOT}/shots/fit-${name}-play.png` })
-  await t(`チュートリアルの案内とボタンが重ならない ${name}`, async () => { const r = await q.evaluate(() => { const a = document.querySelector('#hint').getBoundingClientRect(), o = []; if (document.querySelector('#hint').hidden) return ['hidden']; for (const s of ['#bOffer', '#bPull', '#bGive', '#corner']) { const b = document.querySelector(s).getBoundingClientRect(); if (a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) o.push(s) } return o }); expect(!r.length, r.join()) })
-  await q.evaluate(() => { TI.S.tut = -1; TI.dbg.skipTo(11); TI.dbg.step(170); TI.dbg.offer(); TI.dbg.step(20); TI.dbg.reachNow(); TI.dbg.step(3); TI.dbg.pull(); TI.dbg.resolve(); TI.dbg.step(20) })
+  await t(`チュートリアルの案内とボタンが重ならない ${name}`, async () => { const r = await q.evaluate(() => { const a = document.querySelector('#hint').getBoundingClientRect(), o = []; if (document.querySelector('#hint').hidden) return ['hidden']; for (const s of ['#dpad', '#bGive', '#corner']) { const b = document.querySelector(s).getBoundingClientRect(); if (a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) o.push(s) } return o }); expect(!r.length, r.join()) })
+  await t(`十字キーと渡すボタンが重ならず、画面の内側 ${name}`, async () => { const r = await q.evaluate(() => { const a = document.querySelector('#dpad').getBoundingClientRect(), b = document.querySelector('#bGive').getBoundingClientRect(); return { hit: a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top, gap: Math.round(b.left - a.right), inside: a.left >= 0 && b.right <= innerWidth && a.bottom <= innerHeight && b.bottom <= innerHeight } }); expect(!r.hit && r.inside && r.gap >= 12, r); return r.gap })
+  await q.evaluate(() => { TI.S.tut = -1; TI.dbg.skipTo(11); let n = 0; while (TI.CUR.st !== 'ready' && n++ < 400) TI.dbg.step(1); TI.dbg.dodge(false); TI.dbg.toLunge(); TI.dbg.step(3) })
   views.pres = await fit(q); await q.screenshot({ path: `${ROOT}/shots/fit-${name}-pres.png` })
   await q.evaluate(() => { TI.dbg.give(); TI.dbg.step(60 * 8) }); await q.waitForFunction(() => TI.S.mode === 'result', null, { timeout: 5000 }).catch(() => {}); await q.evaluate(() => { TI.dbg.reveal(); TI.dbg.step(5) })
   views.result = await fit(q); await q.screenshot({ path: `${ROOT}/shots/fit-${name}-result.png` })
@@ -195,12 +230,14 @@ await t('WebKit: 2本指の touchmove を止める', async () => {
   const r = await wp.evaluate(() => { const e = new Event('touchmove', { cancelable: true, bubbles: true }); Object.defineProperty(e, 'touches', { value: [{}, {}] }); document.body.dispatchEvent(e); return e.defaultPrevented })
   expect(r, r)
 })
-await t('WebKit: タップで出勤→かわす→渡す→明細まで', async () => {
+await t('WebKit: タップで出勤→十字キーでかわす→渡す→明細まで', async () => {
   await wp.tap('#bStart'); await wp.waitForTimeout(200)
-  const r = await wp.evaluate(() => { TI.dbg.pause(true); TI.S.tut = -1; TI.dbg.step(150); TI.dbg.offer(); TI.dbg.step(20); TI.dbg.reachNow(); TI.dbg.step(3); TI.dbg.pull(); TI.dbg.resolve(); TI.dbg.step(30); TI.dbg.give(); TI.dbg.step(30); const c = TI.dbg.cust(); TI.dbg.end(); TI.dbg.step(200); return c })
+  const d = await wp.evaluate(() => { TI.dbg.pause(true); TI.S.tut = -1; let n = 0; while (TI.CUR.st !== 'ready' && n++ < 300) TI.dbg.step(1); TI.dbg.toLunge(); TI.dbg.step(1); return TI.dbg.dodgeDir() })
+  await wp.tap('#d' + d)
+  const r = await wp.evaluate(() => { TI.dbg.resolve(); TI.dbg.step(20); TI.dbg.give(); TI.dbg.step(30); const c = TI.dbg.cust(); TI.dbg.end(); TI.dbg.step(200); return c })
   await wp.waitForFunction(() => TI.S.mode === 'result', null, { timeout: 5000 }).catch(() => {})
   const m = await wp.evaluate(() => TI.S.mode)
-  expect(r.done === 'given' && r.teases === 1 && m === 'result', { r, m }); return m
+  expect(r.done === 'given' && r.teases === 1 && m === 'result', { r, m, d }); return m
 })
 await t('WebKit: エラーなし', async () => { expect(wp.errs.length === 0, wp.errs.join('|')) })
 await wb.close()

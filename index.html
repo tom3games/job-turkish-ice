@@ -4,17 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>1日だけ職場体験 トルコアイス屋 | ONE-DAY JOB: TURKISH ICE CREAM</title>
-<meta name="description" content="差し出して、引っ込めて、客をからかうトルコアイス屋のバイト。遊びすぎると泣かれる・キレられる。最後は大統領とボディガード。1回で渡したら閉店。終業後は給料明細が出る。ブラウザで遊べるバカゲー。">
+<meta name="description" content="十字キーでアイスをくるっと逃がして、客をからかうトルコアイス屋のバイト。遊びすぎると泣かれる・キレられる。いい塩梅で渡せ。終業後は給料明細が出る。ブラウザで遊べるバカゲー。">
 <meta name="theme-color" content="#2b1416">
 <meta property="og:type" content="website">
 <meta property="og:title" content="1日だけ職場体験 トルコアイス屋">
-<meta property="og:description" content="差し出して、引っ込める。遊びすぎると泣かれる。大統領に1回で渡したら閉店。今日の手取りは給料明細で。">
-<meta property="og:image" content="https://tom3games.github.io/job-turkish-ice/og.png?v=1">
+<meta property="og:description" content="手が伸びたら、くるっと逃がす。遊びすぎると泣かれる。いい塩梅で渡せ。今日の手取りは給料明細で。">
+<meta property="og:image" content="https://tom3games.github.io/job-turkish-ice/og.png?v=2">
 <meta property="og:url" content="https://tom3games.github.io/job-turkish-ice/">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="1日だけ職場体験 トルコアイス屋">
-<meta name="twitter:description" content="差し出して、引っ込める。遊びすぎると泣かれる。大統領に1回で渡したら閉店。">
-<meta name="twitter:image" content="https://tom3games.github.io/job-turkish-ice/og.png?v=1">
+<meta name="twitter:description" content="手が伸びたら、くるっと逃がす。遊びすぎると泣かれる。いい塩梅で渡せ。">
+<meta name="twitter:image" content="https://tom3games.github.io/job-turkish-ice/og.png?v=2">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M20 30l12 30 12-30z' fill='%23d9a35a' stroke='%231d1a16' stroke-width='4' stroke-linejoin='round'/%3E%3Ccircle cx='32' cy='24' r='14' fill='%23ffd1dc' stroke='%231d1a16' stroke-width='4'/%3E%3Cpath d='M44 14L58 4' stroke='%231d1a16' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -96,7 +96,14 @@ html[lang=ja] .logo .main b{font-family:var(--disp);font-weight:400}
 #finger{position:absolute;left:0;top:0;width:54px;height:54px;pointer-events:none;filter:drop-shadow(0 3px 0 rgba(0,0,0,.35));z-index:4;animation:tapf .8s ease-in-out infinite}
 @keyframes tapf{50%{translate:0 8px}}
 #finger svg{width:100%;height:100%}
-#ctl{position:absolute;left:0;right:0;bottom:max(14px,calc(env(safe-area-inset-bottom) + 8px));display:flex;justify-content:center;align-items:flex-end;gap:14px;pointer-events:none;padding:0 12px}
+#ctl{position:absolute;left:0;right:0;bottom:max(14px,calc(env(safe-area-inset-bottom) + 8px));display:flex;justify-content:space-between;align-items:flex-end;gap:14px;pointer-events:none;padding:0 max(14px,env(safe-area-inset-right)) 0 max(14px,env(safe-area-inset-left))}
+.dpad{pointer-events:auto;display:grid;grid-template-columns:repeat(3,58px);grid-template-rows:repeat(3,58px);gap:3px;touch-action:none}
+.dk{border:3px solid var(--ink);background:rgba(251,246,234,.94);color:var(--ink);border-radius:14px;box-shadow:0 4px 0 var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:none;padding:0}
+.dk svg{width:28px;height:28px}
+.dk.u{grid-area:1/2}.dk.l{grid-area:2/1}.dk.c{grid-area:2/2;border-radius:50%;background:rgba(233,180,76,.94)}.dk.c svg{width:18px;height:18px}.dk.r{grid-area:2/3}.dk.d{grid-area:3/2}
+.dk.on{transform:translateY(3px);box-shadow:0 1px 0 var(--ink);background:var(--yel)}
+.dk:disabled{opacity:.45}
+.dpad.flash .dk:not(.c){animation:flash .5s ease-in-out infinite alternate}
 .pad{pointer-events:auto;width:92px;height:92px;border-radius:50%;border:3px solid var(--ink);background:rgba(251,246,234,.94);color:var(--ink);box-shadow:0 5px 0 var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;touch-action:none;font-weight:900;font-size:13px;line-height:1.1}
 .pad svg{width:36px;height:36px;stroke:currentColor;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
 .pad.on{transform:translateY(4px);box-shadow:0 1px 0 var(--ink);background:var(--yel)}
@@ -150,6 +157,7 @@ html[lang=ja] .logo .main b{font-family:var(--disp);font-weight:400}
   .btn{min-height:48px;font-size:16px}.btn.red{min-height:54px;font-size:19px}
   .step{font-size:13px}.step svg{width:40px;height:40px}
   .pad{width:78px;height:78px;font-size:12px}.pad svg{width:30px;height:30px}.pad.give{width:88px;height:88px;margin-bottom:10px}
+  .dpad{grid-template-columns:repeat(3,50px);grid-template-rows:repeat(3,50px)}.dk svg{width:24px;height:24px}
   .res .row .btn{min-height:44px;font-size:15px}
 }
 @media (max-height:560px) and (orientation:landscape){
@@ -167,9 +175,8 @@ html[lang=ja] .logo .main b{font-family:var(--disp);font-weight:400}
   .resSide{flex:0 0 auto;width:min(320px,44%);min-width:0}
   .res .row .btn{font-size:14px;gap:6px;padding:0 8px;min-height:44px}
   .res .row .btn svg{width:18px;height:18px}
-  #ctl{justify-content:space-between;padding:0 max(18px,env(safe-area-inset-right)) 0 max(18px,env(safe-area-inset-left))}
-  #ctl .give{position:absolute;right:max(126px,calc(env(safe-area-inset-right) + 108px));bottom:0;margin:0}
-  .pad{width:80px;height:80px}.pad.give{width:80px;height:80px}
+  .pad.give{width:84px;height:84px;margin-bottom:6px}
+  .dpad{grid-template-columns:repeat(3,46px);grid-template-rows:repeat(3,46px)}
   .hint{top:auto;bottom:max(104px,calc(env(safe-area-inset-bottom) + 98px));font-size:14px}
   .moreL{grid-template-columns:repeat(4,1fr);gap:8px}.moreL b{font-size:12px}.moreL span{display:none}
 }
@@ -223,9 +230,8 @@ html[lang=ja] .logo .main b{font-family:var(--disp);font-weight:400}
   <div class="hint" id="hint" hidden></div>
   <div id="finger" hidden><svg viewBox="0 0 48 48"><path d="M18 26V9a3 3 0 0 1 6 0v12l9 2c3 .7 4.5 3 4 6l-2 10c-.4 2-2 3-4 3H22c-1.6 0-3-.8-3.8-2.2L12 29c-1-1.8.6-4 2.6-3.3z" fill="#fff" stroke="#1d1a16" stroke-width="2.6" stroke-linejoin="round"/></svg></div>
   <div id="ctl">
-    <button class="pad" id="bPull" type="button"><svg viewBox="0 0 24 24"><path d="M19 15H9a4 4 0 0 1-4-4V5"/><path d="M1.5 8.5L5 5l3.5 3.5"/></svg><span data-t="pull"></span></button>
+    <div class="dpad" id="dpad"><button class="dk u" id="dU" type="button" data-dir="U" data-ta="dU"><svg viewBox="0 0 24 24"><path d="M12 5l7 9H5z" fill="currentColor" transform="rotate(0 12 12)"/></svg></button><button class="dk l" id="dL" type="button" data-dir="L" data-ta="dL"><svg viewBox="0 0 24 24"><path d="M12 5l7 9H5z" fill="currentColor" transform="rotate(-90 12 12)"/></svg></button><button class="dk c" id="dC" type="button" data-dir="C" data-ta="dC"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="currentColor"/></svg></button><button class="dk r" id="dR" type="button" data-dir="R" data-ta="dR"><svg viewBox="0 0 24 24"><path d="M12 5l7 9H5z" fill="currentColor" transform="rotate(90 12 12)"/></svg></button><button class="dk d" id="dD" type="button" data-dir="D" data-ta="dD"><svg viewBox="0 0 24 24"><path d="M12 5l7 9H5z" fill="currentColor" transform="rotate(180 12 12)"/></svg></button></div>
     <button class="pad give" id="bGive" type="button"><svg viewBox="0 0 24 24"><path d="M3 13h5l3 2h5a2 2 0 0 1 0 4H10"/><path d="M8 13v7H3"/><path d="M14 9l2.5 4L19 9z"/><circle cx="16.5" cy="6.5" r="2.5"/></svg><span data-t="give"></span></button>
-    <button class="pad" id="bOffer" type="button"><svg viewBox="0 0 24 24"><path d="M4 12h12"/><path d="M12 7l5 5-5 5"/><circle cx="20" cy="12" r="2"/></svg><span data-t="offer"></span></button>
   </div>
 </main>
 
@@ -270,7 +276,7 @@ html[lang=ja] .logo .main b{font-family:var(--disp);font-weight:400}
   },7000);
 })();
 </script>
-<script src="data.js?v=2"></script>
-<script type="module" src="game.js?v=1"></script>
+<script src="data.js?v=3"></script>
+<script type="module" src="game.js?v=2"></script>
 </body>
 </html>

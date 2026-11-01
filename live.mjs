@@ -12,7 +12,7 @@ for (const [name, bt, opts] of [['chromium', chromium, {}], ['webkit', webkit, {
   await p.goto(URL0 + '?t=' + Date.now(), { waitUntil: 'networkidle' })
   await p.waitForFunction(() => window.__tiReady && TI.charsReady, null, { timeout: 20000 })
   await p.click('#bStart'); await p.waitForTimeout(300)
-  const flow = await p.evaluate(() => { TI.dbg.pause(true); TI.S.tut = -1; TI.dbg.step(150); TI.dbg.offer(); TI.dbg.step(20); TI.dbg.reachNow(); TI.dbg.step(3); TI.dbg.pull(); TI.dbg.resolve(); TI.dbg.step(20); TI.dbg.give(); TI.dbg.step(30); const c = TI.dbg.cust(); TI.dbg.skipTo(11); TI.dbg.step(160); TI.dbg.give(); TI.dbg.step(60 * 8); return { c: c && { done: c.done, teases: c.teases, tip: c.tip }, closed: TI.S.closed } })
+  const flow = await p.evaluate(() => { TI.dbg.pause(true); TI.S.tut = -1; let n = 0; while (TI.CUR.st !== 'ready' && n++ < 300) TI.dbg.step(1); TI.dbg.dodge(false); TI.dbg.give(); TI.dbg.step(30); const c = TI.dbg.cust(); TI.dbg.skipTo(11); n = 0; while (TI.CUR.st !== 'ready' && n++ < 400) TI.dbg.step(1); TI.dbg.give(); TI.dbg.step(60 * 8); return { c: c && { done: c.done, teases: c.teases, tip: c.tip }, closed: TI.S.closed, ver: [...document.scripts].map(s => s.src.split('/').pop()).filter(Boolean) } })
   await p.waitForFunction(() => TI.S.mode === 'result', null, { timeout: 5000 }).catch(() => {})
   await p.evaluate(() => { TI.dbg.reveal(); TI.dbg.step(5) })
   const res = await p.evaluate(() => ({ mode: TI.S.mode, net: TI.S.result && TI.S.result.net, stamp: TI.S.result && TI.S.result.rank.st.ja }))

@@ -1,14 +1,14 @@
 // 1日だけ職場体験 #3 トルコアイス屋 / ONE-DAY JOB: TURKISH ICE CREAM — 文言・客・お金
 window.TI_DATA = {
   // 客の種類。pat=からかって平気な回数（これを超えると泣く/キレる）、jit=日ごとのぶれ、tip=1回遊ぶごとのチップ
-  // reach=[手を出すまでの秒 最小,最大]、wind=手を構える秒（ここで引っ込めれば安全）、lunge=手が届くまでの秒
+  // reach=[手を構えるまでの秒 最小,最大]、wind=構える秒（アイスを目で追う。動かすと狙い直してイライラ）、lunge=手が届くまでの秒（伸び始めに狙う場所が決まる）
   KINDS: {
-    normal: { pat: 3, jit: 1, tip: 150, reach: [0.7, 1.6], wind: 0.55, lunge: 0.26, h: 1.6 },
-    kid: { pat: 1, jit: 1, tip: 120, reach: [0.6, 1.3], wind: 0.62, lunge: 0.3, h: 1.08 },
-    granny: { pat: 99, cap: 7, jit: 0, tip: 70, reach: [0.9, 1.8], wind: 0.85, lunge: 0.42, h: 1.42 },
-    yankee: { pat: 2, jit: 1, tip: 230, reach: [0.35, 1.0], wind: 0.38, lunge: 0.19, h: 1.66 },
-    senju: { pat: 4, jit: 1, tip: 260, reach: [0.2, 0.6], wind: 0.32, lunge: 0.18, h: 1.7, arms: 12 },
-    president: { pat: 6, jit: 0, tip: 0, reach: [0.6, 1.4], wind: 0.5, lunge: 0.23, h: 1.68, ideal: 3 },
+    normal: { pat: 3, jit: 1, tip: 150, reach: [0.7, 1.6], wind: 0.6, lunge: 0.45, h: 1.6 },
+    kid: { pat: 1, jit: 1, tip: 120, reach: [0.6, 1.3], wind: 0.65, lunge: 0.55, h: 1.08 },
+    granny: { pat: 99, cap: 7, jit: 0, tip: 70, reach: [0.9, 1.8], wind: 0.85, lunge: 0.7, h: 1.42 },
+    yankee: { pat: 2, jit: 1, tip: 230, reach: [0.35, 1.0], wind: 0.45, lunge: 0.4, h: 1.66 },
+    senju: { pat: 4, jit: 1, tip: 260, reach: [0.2, 0.6], wind: 0.5, lunge: 0.4, h: 1.7, arms: 12, multi: [2, 3] },
+    president: { pat: 6, jit: 0, tip: 0, reach: [0.4, 0.9], wind: 0.42, lunge: 0.42, h: 1.68, ideal: 3 },
   },
   // 1日の客（順番どおりに来る）。m=見た目のモデル
   DAY: [
@@ -33,12 +33,12 @@ window.TI_DATA = {
       badge: '1日だけ職場体験 #3', logo: 'トルコ<b>アイス屋</b>', start: '出勤する', how: '遊び方', back: 'もどる',
       bossName: 'マスター', lead: 'トルコアイスはな、客をからかってナンボや。でも泣かしたらあかん。',
       howT: '遊び方',
-      how1: '<b>差し出す</b>でアイスを出す。客が<b>手を伸ばしたら引っ込める</b>。かわすたびにチップが増える',
+      how1: '<b>十字キー</b>でアイスを上下左右に逃がす。客の<b>手が伸びてきた瞬間</b>に、狙われていない場所へ。かわすたびにチップ（構えている間に動かすとイライラされる）',
       how2: '遊びすぎると<b>泣く・キレる</b>（チップ0でおわびのアイス）。<b>顔と一言</b>が限界の合図。いい塩梅で<b>渡す</b>',
-      how3: '取られたらアイス代を引かれる。最後に来る<b>大統領</b>は、ボディガードに脅されても<b>1回で渡したら閉店</b>',
-      offer: '差し出す', pull: '引っ込める', give: '渡す',
-      tutOffer: '差し出す を押す', tutOfferPC: '↑ キーで差し出す', tutWait: '手が来たら引っ込める', tutPull: '今！引っ込める', tutPullPC: '今！↓ キーで引っ込める',
-      tutMore: 'うまい！もう少し遊んでチップを稼ぐ', tutGive: 'そろそろ限界。渡す！', tutGivePC: 'そろそろ限界。Space で渡す！', tutStolen: '取られた。手が来たらすぐ引っ込める',
+      how3: '取られたらアイス代を引かれる。',
+      give: '渡す', dU: '上', dD: '下', dL: '左', dR: '右', dC: '真ん中',
+      tutWatch: '客の手をよく見る', tutWind: '構えた。手が伸びたら十字キーで逃がす', tutWindPC: '構えた。手が伸びたら矢印キーで逃がす', tutPull: '今！十字キーで逃がす', tutPullPC: '今！矢印キーで逃がす', tutIrk: '構えてる間に動かすとイライラされる',
+      tutMore: 'うまい！もう少し遊んでチップを稼ぐ', tutGive: 'そろそろ限界。渡す！', tutGivePC: 'そろそろ限界。Space で渡す！', tutStolen: '同じ場所に置いたままだと取られる',
       custN: '{N}人目', of: '/{N}',
       whiff: ['スカッ', 'あっ！', 'スカッ'], close: 'ギリギリ！', bell: 'カーン',
       stolenO: '取られた', brokeO: { kid: 'ギャン泣き', yankee: 'ブチギレ', normal: 'ムッとして帰った', senju: '千手でビンタ', granny: '寝た', president: '国際問題' },
@@ -65,12 +65,12 @@ window.TI_DATA = {
       badge: 'ONE-DAY JOB #3', logo: 'TURKISH <b>ICE CREAM</b>', start: 'Clock in', how: 'How to play', back: 'Back',
       bossName: 'Master', lead: 'Turkish ice cream is all about teasing the customer. But never make them cry.',
       howT: 'How to play',
-      how1: '<b>Offer</b> the cone. When they <b>reach for it, pull it back</b>. Every dodge adds a tip',
+      how1: 'Use the <b>D-pad</b> to whisk the cone up, down, left or right. The <b>moment their hand shoots out</b>, move it somewhere they are not aiming. Every dodge adds a tip (moving while they wind up annoys them)',
       how2: 'Tease too much and they <b>cry or snap</b> (no tip, free cone). Their <b>face and words</b> warn you. <b>Hand it over</b> at the right moment',
-      how3: 'If they snatch it, the cone comes out of your pay. The <b>President</b> comes last: even if the bodyguard threatens you, <b>one try and your shop gets shut down</b>',
-      offer: 'Offer', pull: 'Pull back', give: 'Hand over',
-      tutOffer: 'Tap Offer', tutOfferPC: '↑ key: offer', tutWait: 'Pull back when the hand comes', tutPull: 'NOW! Pull back', tutPullPC: 'NOW! ↓ key: pull back',
-      tutMore: 'Nice! Tease a bit more for tips', tutGive: 'They\'re at the limit. Hand it over!', tutGivePC: 'At the limit. Space: hand over!', tutStolen: 'Snatched. Pull back as soon as the hand comes',
+      how3: 'If they snatch it, the cone comes out of your pay.',
+      give: 'Hand over', dU: 'Up', dD: 'Down', dL: 'Left', dR: 'Right', dC: 'Center',
+      tutWatch: 'Watch their hand', tutWind: 'Winding up. When the hand shoots, use the D-pad', tutWindPC: 'Winding up. When the hand shoots, use the arrow keys', tutPull: 'NOW! Move it', tutPullPC: 'NOW! Arrow key', tutIrk: 'Moving while they wind up annoys them',
+      tutMore: 'Nice! Tease a bit more for tips', tutGive: 'They\'re at the limit. Hand it over!', tutGivePC: 'At the limit. Space: hand over!', tutStolen: 'Leave it still and it gets snatched',
       custN: '#{N}', of: '/{N}',
       whiff: ['WHIFF', 'Huh!', 'WHIFF'], close: 'CLOSE ONE!', bell: 'DING',
       stolenO: 'SNATCHED', brokeO: { kid: 'WAAAH', yankee: 'SNAPPED', normal: 'Walked off', senju: 'Thousand-hand slap', granny: 'Fell asleep', president: 'DIPLOMATIC INCIDENT' },

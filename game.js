@@ -23,7 +23,7 @@ const CH = 1.5
 const S = {
   lang: store.get('lang') || ((navigator.language || 'ja').toLowerCase().startsWith('ja') ? 'ja' : 'en'),
   mode: 'title', time: 0, rand: Math.random, dbgPause: false,
-  t: 0, ci: 0, ext: 0, want: 0, giving: 0, spin: 0, coneOn: true, coneT: 1,
+  t: 0, ci: 0, spot: 'C', spotT: 1, moves: 0, tutIrk: 0, giving: 0, spin: 0, coneOn: true, coneT: 1,
   money: { tips: 0, teases: 0, close: 0, just: 0, stolen: 0, broke: 0, pres: 0 }, closed: false, incident: false,
   tut: store.get('tut') === '1' ? -1 : 0, tutMsg: '', resT: 0, result: null, photo: null, photoScore: 0,
   endT: 0, ended: false, bossT: 0,
@@ -515,7 +515,7 @@ function spawnCust(i) {
   const def = kindDef(dd.k), h = def.h
   const c = makeChar(dd.m, { h, anim: 'idle', recolor: dd.k === 'senju' ? 'gold' : null }); if (!c) return null
   const pat = def.pat + (def.jit ? Math.floor(R() * (def.jit + 1)) : 0)
-  const cu = { i, k: dd.k, def, c, pat, left: pat, teases: 0, close: 0, tip: 0, idles: 0, idleT: 0, st: 'queue', ph: 'idle', pt: 0, pulled: null, react: 0, lean: 0, reachK: 0, windK: 0, out: null, tut: !!dd.tut, guards: null, pos: new THREE.Vector3(), lastLine: '' }
+  const cu = { i, k: dd.k, def, c, pat, left: pat, teases: 0, close: 0, tip: 0, idles: 0, irk: 0, aim: ['C'], moved: null, st: 'queue', ph: 'idle', pt: 0, react: 0, lean: 0, reachK: 0, windK: 0, out: null, tut: !!dd.tut, guards: null, pos: new THREE.Vector3(), lastLine: '' }
   if (dd.k === 'kid') addKidHat(c)
   if (dd.k === 'yankee') { addPompadour(c); addShades(c) }
   if (dd.k === 'senju') addSenju(c, def.arms)
@@ -563,21 +563,28 @@ function presArrive() {
 // ---------- 棒の動き
 const _a = new THREE.Vector3(), _b = new THREE.Vector3()
 function stickAngles(target) { _a.copy(target).sub(PIV); const yaw = Math.atan2(_a.x, _a.z), pitch = -Math.atan2(_a.y, Math.hypot(_a.x, _a.z)); return [yaw, pitch] }
-const OFF_T = new THREE.Vector3(), BACK_T = new THREE.Vector3(0.12, 2.1, -0.6)
-function offerTarget(out) { const h = CUR ? CUR.def.h : CH; return out.set(-0.02, clamp(h * 0.58, 0.9, 1.05), 0.32) }
+const OFF_T = new THREE.Vector3()
+// アイスを置く5か所（真ん中・上・下・左・右）。画面の左＝世界の +x
+const SPOTS = { C: [0, 0], U: [0, 1], D: [0, -1], L: [1, 0], R: [-1, 0] }, SPOT_N = Object.keys(SPOTS)
+const OPP = { U: 'D', D: 'U', L: 'R', R: 'L' }
+function offerTarget(out) { const h = CUR ? CUR.def.h : CH; return out.set(-0.02, clamp(h * 0.62, 1.0, 1.1), 0.32) }
+function spotPos(name, out) { offerTarget(out); const [sx, sy] = SPOTS[name]; return out.add(_q.set(sx * 0.3, sy > 0 ? 0.27 : sy < 0 ? -0.15 : 0, Math.abs(sx) * -0.04)) }
+const _sf = new THREE.Vector3(), _st = new THREE.Vector3(), _sc = new THREE.Vector3()
 function updateStick(dt) {
-  // ext: 0=引っ込めた（上）、1=差し出した。引っ込めは速い
-  const rate = S.want > S.ext ? 1 / 0.2 : 1 / 0.09
-  S.ext = S.want > S.ext ? Math.min(S.want, S.ext + rate * dt) : Math.max(S.want, S.ext - rate * dt)
-  offerTarget(OFF_T)
-  const [y0, p0] = stickAngles(BACK_T), [y1, p1] = stickAngles(OFF_T), e = ease(S.ext)
-  const len = Math.min(SL, PIV.distanceTo(OFF_T))
-  P.stick.rotation.set(0, 0, 0, 'YXZ'); P.stick.rotation.order = 'YXZ'
-  P.stick.rotation.y = lerp(y0, y1, e); P.stick.rotation.x = lerp(p0, p1, e) + Math.sin(S.time * 3) * 0.01
-  P.stick.updateMatrixWorld()
-  P.tip.set(0, 0, len).applyMatrix4(P.stick.matrixWorld)
-  P.stick.children[0].scale.y = 1
-  // コーン（アイスに刺さっているので、いつも上向き。引っ込める時にくるっと回す）
+  // 動かす時はサッと弧を描いて移る（手前へふくらむ）
+  S.spotT = Math.min(1, S.spotT + dt / 0.13)
+  spotPos(S.spot, _st)
+  if (S.spotT < 1) {
+    const u = ease(S.spotT); _sc.lerpVectors(_sf, _st, 0.5).add(_q.set(0, 0.12, -0.2))
+    P.tip.set(0, 0, 0).addScaledVector(_sf, (1 - u) * (1 - u)).addScaledVector(_sc, 2 * u * (1 - u)).addScaledVector(_st, u * u)
+  } else P.tip.copy(_st)
+  P.tip.y += Math.sin(S.time * 3) * 0.008
+  // 棒は握りからアイスへ
+  _a.copy(P.tip).sub(PIV); const len = _a.length()
+  P.stick.position.copy(PIV); P.stick.rotation.order = 'YXZ'
+  P.stick.rotation.set(-Math.atan2(_a.y, Math.hypot(_a.x, _a.z)), Math.atan2(_a.x, _a.z), 0)
+  P.stick.scale.set(1, 1, len / SL)
+  // コーン（アイスに刺さっているので、いつも上向き。動かす時にくるっと回す）
   S.spin *= Math.exp(-dt * 4)
   P.cone.visible = S.coneOn
   if (S.coneOn) {
@@ -585,16 +592,38 @@ function updateStick(dt) {
     P.cone.rotation.set(Math.sin(S.time * 2) * 0.05, P.cone.rotation.y + S.spin * dt, Math.sin(S.spin * 0.1) * 0.25)
     const k = S.coneT < 1 ? ease(S.coneT / 1) : 1; S.coneT = Math.min(1, S.coneT + dt * 4); P.cone.scale.setScalar(0.2 + 0.8 * k)
   }
-  // 店員の右腕（棒に合わせて上げ下げ）
-  
 }
-function offer() { if (S.mode !== 'play' || S.giving || !CUR || CUR.st !== 'ready') return; if (S.want === 1) return; S.want = 1; Snd.sfx('offer') }
-function pull() {
-  if (S.mode !== 'play' || S.giving) return; if (S.want === 0) return
-  S.want = 0; S.spin = 26; Snd.sfx('pull')
-  if (CUR && (CUR.ph === 'wind' || CUR.ph === 'lunge') && !CUR.pulled) CUR.pulled = CUR.ph
+// 十字キー: その方向の場所へ。反対を押すと真ん中へ戻る。真ん中ボタンでも戻る
+function move(dir) {
+  if (S.mode !== 'play' || S.giving || !CUR || CUR.st !== 'ready' || !S.coneOn) return
+  const to = dir === 'C' ? 'C' : S.spot === OPP[dir] ? 'C' : dir
+  if (to === S.spot) return
+  const cu = CUR
+  // 構えの終わりぎわ（0.08秒以内）に押したら、手が伸び始めたのと同じに扱う（先読みの許し）
+  if (cu.ph === 'wind' && cu.pt <= 0.08) { cu.ph = 'lunge'; cu.pt = cu.pdur = cu.def.lunge * speedK() * (cu.tut && S.tut >= 0 ? 1.5 : 1); if (!cu.aim.includes(S.spot)) cu.aim = pickAim(cu); cu.moved = null }
+  _sf.copy(P.tip); S.spot = to; S.spotT = 0; S.spin = 24; S.moves++; Snd.sfx('pull')
+  if (cu.ph === 'wind') {
+    // 構えている間に動かすと、狙い直して手を出すのが遅れる。イライラが溜まる
+    cu.pt = Math.max(cu.pt, cu.pdur * 0.75); cu.irk++
+    if (cu.irk >= 3) irritate(cu)
+  } else if (cu.ph === 'lunge' && !cu.moved) cu.moved = cu.pt <= cu.pdur * 0.5 ? 'close' : 'lunge'
 }
-function toggle() { if (S.want) pull(); else offer() }
+function irritate(cu) {
+  cu.irk = 0; cu.idles++
+  if (cu.idles >= (cu.k === 'kid' || cu.k === 'yankee' ? 2 : 3) && !(cu.tut && S.tut >= 0)) { broke(cu, true); return }
+  custSay(cu, pick(TT().L[cu.k].idle), cu.k === 'yankee' ? 'hot' : 'warm'); if (cu.guards) guardSay(TT().L.guard.idle); setEmo(cu)
+  if (cu.tut) S.tutIrk = 2
+}
+// 狙う場所（千手観音は2〜3か所。必ず空きが残る）
+function pickAim(cu) {
+  const a = [S.spot]
+  if (cu.def.multi) {
+    const n = cu.def.multi[0] + Math.floor(R() * (cu.def.multi[1] - cu.def.multi[0] + 1))
+    const rest = SPOT_N.filter(x => x !== S.spot)
+    while (a.length < n && rest.length > 1) a.push(rest.splice(Math.floor(R() * rest.length) % rest.length, 1)[0])
+  }
+  return a
+}
 
 // ---------- 遊びの進行
 // 遊びの時計で動くタイマー（setTimeout は一時停止・ヒットストップ・検証の早回しと合わないので使わない）
@@ -650,24 +679,17 @@ function updateCust(dt) {
   }
   if (!CUR || CUR.st !== 'ready') return
   const cu = CUR, def = cu.def, sk = speedK() * (cu.tut && S.tut >= 0 ? 1.5 : 1)
-  const offered = S.ext >= 0.85 && S.want === 1 && !S.giving
   cu.pt -= dt
-  if (cu.ph === 'idle') {
-    if (offered) { cu.ph = 'wait'; cu.pt = lerp(def.reach[0], def.reach[1], R()) * sk; cu.pulled = null }
-    else if (S.ext < 0.3 && !S.giving && !(cu.tut && S.tut >= 0)) {
-      cu.idleT += dt
-      const lim = cu.k === 'president' ? 4.5 : 5.2 - Math.min(1.5, cu.idles * 0.6)
-      if (cu.idleT > lim) { cu.idleT = 0; cu.idles++; const L = lines(); if (cu.idles >= (cu.k === 'kid' || cu.k === 'yankee' ? 2 : 3)) { broke(cu, true); return } custSay(cu, pick(L.idle), cu.k === 'yankee' ? 'hot' : 'warm'); if (cu.guards) guardSay(TT().L.guard.idle); setEmo(cu) }
-    }
-  } else if (cu.ph === 'wait') {
-    if (!offered) { cu.ph = 'idle'; return }
-    if (cu.pt <= 0) { cu.ph = 'wind'; cu.pt = cu.pdur = def.wind * sk; Snd.sfx('wind') }
-  } else if (cu.ph === 'wind') {
-    if (cu.pt <= 0) { cu.ph = 'lunge'; cu.pt = cu.pdur = def.lunge * sk }
+  if (S.giving) return
+  if (cu.ph === 'idle') { cu.ph = 'wait'; cu.pt = lerp(def.reach[0], def.reach[1], R()) * sk; cu.moved = null }
+  else if (cu.ph === 'wait') { if (cu.pt <= 0) { cu.ph = 'wind'; cu.pt = cu.pdur = def.wind * sk; cu.aim = pickAim(cu); Snd.sfx('wind') } }
+  else if (cu.ph === 'wind') {
+    if (!cu.aim.includes(S.spot)) cu.aim = pickAim(cu)
+    if (cu.pt <= 0) { cu.ph = 'lunge'; cu.pt = cu.pdur = def.lunge * sk; cu.moved = null; cu.aim = cu.aim.includes(S.spot) ? cu.aim : pickAim(cu) }
   } else if (cu.ph === 'lunge') {
     if (cu.pt <= 0) {
-      if (S.ext >= 0.5 && !S.giving) stolen(cu)
-      else { tease(cu, cu.pulled === 'lunge'); if (cu.st === 'ready') { cu.ph = 'back'; cu.pt = 0.55 } }
+      if (cu.aim.includes(S.spot)) stolen(cu)
+      else { tease(cu, cu.moved === 'close'); if (cu.st === 'ready') { cu.ph = 'back'; cu.pt = 0.55 } }
     }
   } else if (cu.ph === 'back') { if (cu.pt <= 0) cu.ph = 'idle' }
 }
@@ -679,7 +701,7 @@ function onReady(cu) {
   S.coneOn = true
 }
 function tease(cu, close) {
-  cu.teases++; cu.left--; cu.idleT = 0
+  cu.teases++; cu.left--; cu.irk = 0
   const T = TT(), mult = close ? 1 + D.YEN.close : 1, add = Math.round(cu.def.tip * mult)
   cu.tip += add; S.money.teases++; if (close) { S.money.close++; cu.close++ }
   Snd.sfx('whiff'); later(0.06, () => Snd.sfx('bell', { p: close ? 1.12 : 1 })); if (close) Snd.sfx('close')
@@ -701,22 +723,21 @@ function tease(cu, close) {
   play(cu.c, cu.left <= 0 ? 'emote-no' : 'emote-yes', 0.15, 1.2, true); cu.react = 1
 }
 function stolen(cu) {
-  S.want = 0; S.coneOn = false
-  if (!(cu.k === 'president' && cu.teases === 0)) S.money.stolen++
+  S.coneOn = false; if (cu.tut) S.lastStolen = true
+  S.money.stolen++
   const T = TT()
   Snd.sfx('grab'); ono(T.stolenO, P.tip.clone().add(_q.set(0, 0.3, 0)), 'red', { size: 34 })
   fx.shake(0.02, 0.25)
   coneTo(cu)
   custSay(cu, lines().stolen, 'warm', 1.8)
   later(0.8, () => { if (S.mode === 'play') bossSay(pick(T.bossStolen)) })
-  if (cu.k === 'president' && cu.teases === 0) { closedDown(cu); return }
   cu.tip = 0
   finish(cu, 'stolen')
 }
 function broke(cu, idle) {
   const T = TT(), L = lines()
   if (cu.k === 'president') { incident(cu); return }
-  S.money.broke++; cu.tip = 0; S.coneOn = false; S.want = 0
+  S.money.broke++; cu.tip = 0; S.coneOn = false
   custSay(cu, L.brk, cu.k === 'kid' ? 'cry' : cu.k === 'granny' ? '' : 'hot', 2.2)
   const hp = headPos(cu.c, _v2).clone()
   ono(T.brokeO[cu.k], hp.add(_q.set(0, 0.25, 0)), cu.k === 'kid' ? 'blue' : 'red', { size: cu.k === 'kid' ? 40 : 36, life: 1.4 })
@@ -758,7 +779,7 @@ function startLeave(cu) {
   if (CUR === cu) CUR = null
   if (S.mode !== 'play') return
   if (cu.k === 'president') { endShift(); return }
-  fillLine(); S.coneOn = true; S.coneT = 0; S.want = 0; Snd.sfx('pop')
+  fillLine(); S.coneOn = true; S.coneT = 0; S.spot = 'C'; S.spotT = 1; Snd.sfx('pop')
   later(0.3, () => { if (S.mode === 'play' && !CUR) nextCustomer() })
 }
 // アイスを客の手へ（棒の先のアイスを複製して、客について行かせる）
@@ -775,7 +796,7 @@ function updateConeFly(dt) {
 function clearHandCones() { for (const f of handCones) f.g.removeFromParent(); handCones.length = 0 }
 function give() {
   if (S.mode !== 'play' || S.giving || !CUR || CUR.st !== 'ready') return
-  S.giving = 0.32; S.want = 1; CUR.ph = 'idle'; Snd.sfx('offer')
+  S.giving = 0.32; CUR.ph = 'idle'; Snd.sfx('offer')
   if (S.tut >= 0) S.tutGave = true
 }
 function updateGive(dt) {
@@ -803,7 +824,7 @@ function closedDown(cu) {
   later(4.2, () => endShift())
 }
 function incident(cu) {
-  S.incident = true; cu.done = 'broke'; cu.st = 'done'; setEmo(cu); S.coneOn = false; S.want = 0
+  S.incident = true; cu.done = 'broke'; cu.st = 'done'; setEmo(cu); S.coneOn = false
   const T = TT()
   custSay(cu, T.L.president.brk, 'cry', 2.6); Snd.sfx('cry', { p: 0.6 })
   ono(T.brokeO.president, headPos(cu.c, _v2).clone().add(_q.set(0, 0.35, 0)), 'red', { size: 40, life: 2 })
@@ -844,22 +865,41 @@ function updateEnd(dt) { S.endT += dt; updateConeFly(dt); updateCust(dt); runTim
 // ---------- チュートリアル（最初の1回だけ。1人目の客）
 function updateTutorial() {
   const h = $('#hint'), fg = $('#finger')
-  if (S.tut < 0 || S.mode !== 'play' || !CUR || !CUR.tut) { h.hidden = true; fg.hidden = true; for (const b of ['#bOffer', '#bPull', '#bGive']) $(b).classList.remove('flash'); return }
+  if (S.tut < 0 || S.mode !== 'play' || !CUR || !CUR.tut) { h.hidden = true; fg.hidden = true; for (const b of ['#dpad', '#bGive']) $(b).classList.remove('flash'); return }
   const T = TT(), cu = CUR; let txt = '', el = null, now = false
   if (cu.st === 'done') { if (cu.done === 'given' || cu.done === 'cap') { S.tut = -1; store.set('tut', '1') } }
   else if (cu.st !== 'ready') txt = ''
   else if (cu.left <= 0 && cu.teases > 0) { txt = isTouch ? T.tutGive : T.tutGivePC; el = '#bGive' }
   else if (S.lastStolen) { txt = T.tutStolen }
-  else if (cu.ph === 'wind' || cu.ph === 'lunge') { txt = isTouch ? T.tutPull : T.tutPullPC; el = '#bPull'; now = true }
-  else if (S.want === 1) txt = cu.teases ? T.tutMore : T.tutWait
-  else { txt = cu.teases ? T.tutMore : (isTouch ? T.tutOffer : T.tutOfferPC); el = '#bOffer' }
+  else if (S.tutIrk > 0) { txt = T.tutIrk }
+  else if (cu.ph === 'lunge' && !cu.moved) { txt = isTouch ? T.tutPull : T.tutPullPC; el = '#dpad'; now = true }
+  else if (cu.ph === 'wind') txt = isTouch ? T.tutWind : T.tutWindPC
+  else txt = cu.teases ? T.tutMore : T.tutWatch
   h.hidden = !txt; if (txt && h.textContent !== txt) h.textContent = txt; h.classList.toggle('now', now)
-  for (const b of ['#bOffer', '#bPull', '#bGive']) $(b).classList.toggle('flash', b === el)
+  for (const b of ['#dpad', '#bGive']) $(b).classList.toggle('flash', b === el)
   if (el && isTouch) { const r = $(el).getBoundingClientRect(); fg.hidden = false; fg.style.transform = `translate(${r.left + r.width / 2 - 14}px,${r.top - 44}px)` } else fg.hidden = true
+  if (S.tutIrk > 0) S.tutIrk -= 1 / 60
 }
 
 // ---------- 場面
-const _cp = new THREE.Vector3(), _cl = new THREE.Vector3()
+const _cp = new THREE.Vector3(), _cl = new THREE.Vector3(), _ax = new THREE.Vector3(-1, 0, 0), _aw = new THREE.Vector3()
+const HEAD_SIGN = [0.8, 0.6], _axL = new THREE.Vector3(1, 0, 0)
+// 腕と目線を狙っている場所へ向ける（構え=向けるだけ、伸ばす=腕ごと伸びる）
+function aimArm(cu) {
+  const c = cu.c, k = Math.max(cu.windK * 0.75, cu.reachK)
+  spotPos(cu.ph === 'lunge' || cu.ph === 'back' ? cu.aim[0] : S.spot, _b)
+  cu.look = cu.look || _b.clone(); cu.look.lerp(_b, cu.ph === 'wind' ? 0.25 : 0.5)
+  _aw.copy(cu.look); c.g.worldToLocal(_aw)
+  if (c.head) { const hy = c.h * 0.75 / c.g.scale.x; c.head.rotation.set(clamp(-Math.atan2(_aw.y - hy, Math.hypot(_aw.x, _aw.z)), -0.5, 0.5) * HEAD_SIGN[1], clamp(Math.atan2(_aw.x, _aw.z), -0.6, 0.6) * HEAD_SIGN[0], 0) }
+  // 狙う側の腕を使う（体の前を横切って顔を隠さないように）
+  const useL = _aw.x > 0.02 / c.g.scale.x && c.armL, arm = useL ? c.armL : c.armR, other = useL ? c.armR : c.armL
+  if (other) other.scale.x = 1
+  if (k <= 0.001) { arm.scale.x = 1; return }
+  arm.getWorldPosition(_a); _aw.copy(cu.look).sub(_a); const L = _aw.length(); _aw.normalize()
+  arm.parent.getWorldQuaternion(_pq); _aw.applyQuaternion(_pq.invert())
+  _qa.setFromUnitVectors(useL ? _axL : _ax, _aw); arm.quaternion.slerp(_qa, clamp(k, 0, 1))
+  arm.scale.x = lerp(cu.ph === 'wind' ? 0.85 + Math.sin(S.time * 40) * 0.04 : 1, clamp(L / (0.3 * c.h / 1.6), 1, 2.4), cu.reachK)
+}
 function updateScene(dt) {
   S.time += dt
   if (S.mode === 'title') updateStick(dt)
@@ -878,7 +918,7 @@ function updateScene(dt) {
     const g = c.g, lean = cu.reachK * 0.07 - cu.windK * (1 - cu.reachK) * 0.06
     c.root.rotation.x = lean
     c.root.position.z = cu.reachK * 0.05 / g.scale.x
-    if (c.armR && !c.senjuG) poseArm(c.armR, Math.max(cu.windK, cu.reachK), 0, lerp(0.9, 1.5, cu.reachK), lerp(-1.2, -0.45, cu.reachK))
+    if (c.armR && !c.senjuG) aimArm(cu)
     if (cu.react > 0) { cu.react -= dt; if (cu.react <= 0 && cu.st === 'ready') play(c, 'idle', 0.3) }
     if (c.senjuG) for (const [k, arm] of c.arms.entries()) {
       const u = arm.userData, act = cu === CUR && k < 4 ? 1 : 0
@@ -887,12 +927,12 @@ function updateScene(dt) {
     }
     // 千手観音: 左右から金の手が4本のびてアイスに集まる
     if (c.grab) c.grab.forEach((gr, k) => {
-      const kk = cu === CUR ? Math.max(cu.windK * 0.25, cu.reachK) : 0
+      const kk = cu === CUR ? Math.max(cu.windK * 0.3, cu.reachK) : 0
       gr.hand.visible = gr.rod.visible = kk > 0.01
       if (kk <= 0.01) return
       const side = k % 2 ? 1 : -1, sc = c.h / 1.6
       _a.set(side * (0.55 + (k >> 1) * 0.12) * sc, (0.62 + (k >> 1) * 0.22) * sc, 0.12 * sc).divideScalar(c.g.scale.x); c.g.localToWorld(_a)
-      _b.copy(P.tip).add(_q.set(side * 0.05, (k >> 1) ? -0.07 : 0.05, 0.03))
+      spotPos(cu.aim[k % cu.aim.length] || 'C', _b).add(_q.set(side * 0.04, (k >> 1) ? -0.05 : 0.04, 0.03))
       _v2.lerpVectors(_a, _b, kk); _v2.y += Math.sin(S.time * 20 + k) * 0.03 * cu.windK * (1 - cu.reachK)
       gr.hand.position.copy(_v2); gr.hand.scale.setScalar(sc)
       const L = _a.distanceTo(_v2); gr.rod.position.copy(_a); _b.copy(_v2).sub(_a).normalize(); gr.rod.quaternion.setFromUnitVectors(_Y, _b); gr.rod.scale.set(sc, Math.max(0.01, L), sc)
@@ -906,7 +946,7 @@ function updateScene(dt) {
     if (cu.guards) for (const gd of cu.guards) gd.mixer.update(dt)
   }
   for (const cu of leaving) { cu.c.mixer.update(dt); if (cu.c.emo.visible) { headPos(cu.c, cu.c.emo.position); cu.c.emo.position.x += 0.3 } if (cu.guards) for (const gd of cu.guards) gd.mixer.update(dt) }
-  if (P.c) { P.c.mixer.update(dt); const e = ease(S.ext); poseArm(P.c.armR, 1, 0, lerp(0.9, 1.45, e), lerp(-1.15, -0.2, e)) }
+  if (P.c) { P.c.mixer.update(dt); poseArm(P.c.armR, 1, 0, 1.45, -0.2) }
   if (MASTER.c) MASTER.c.mixer.update(dt)
   for (const c of walkers) { c.mixer.update(dt); c.g.position.x += c.dir * c.sp * dt; if (c.g.position.x > 12) c.g.position.x = -12; if (c.g.position.x < -12) c.g.position.x = 12 }
   for (const g of lanterns) g.rotation.z = Math.sin(S.time * 1.3 + g.position.x) * 0.06
@@ -954,6 +994,7 @@ function applyLang() {
   for (const el of document.querySelectorAll('[data-t]')) el.innerHTML = T[el.dataset.t]
   $('#langTxt').textContent = S.lang === 'ja' ? 'EN' : 'JA'
   $('#bMoreX').setAttribute('aria-label', T.close)
+  for (const b of document.querySelectorAll('[data-ta]')) b.setAttribute('aria-label', T[b.dataset.ta])
   $('#hOf').textContent = T.of.replace('{N}', D.DAY.length)
   if (S.mode === 'result') drawSlip(S.stamped ? 1 : 0)
   if (!$('#moreBox').hidden) fillMore()
@@ -965,7 +1006,7 @@ function clearPeople() {
 function resetRun(seed) {
   S.rand = seed ? mulberry(seed) : Math.random
   clearFx(); clearPeople(); clearHandCones(); TIMERS.length = 0
-  Object.assign(S, { t: 0, ci: 0, ext: 0, want: 0, giving: 0, spin: 0, coneOn: true, coneT: 1, money: { tips: 0, teases: 0, close: 0, just: 0, stolen: 0, broke: 0, pres: 0 }, closed: false, incident: false, photo: null, photoScore: 0, capAt: null, ended: false, result: null, endT: 0, shutT: null, lastStolen: false, tutGave: false })
+  Object.assign(S, { t: 0, ci: 0, spot: 'C', spotT: 1, moves: 0, tutIrk: 0, giving: 0, spin: 0, coneOn: true, coneT: 1, money: { tips: 0, teases: 0, close: 0, just: 0, stolen: 0, broke: 0, pres: 0 }, closed: false, incident: false, photo: null, photoScore: 0, capAt: null, ended: false, result: null, endT: 0, shutT: null, lastStolen: false, tutGave: false })
   shutterMesh.visible = false; shutterMesh.position.y = 2.4; $('#shutter').style.height = '0'; $('#vignette').classList.remove('boss')
   camInit = false; P.cone.visible = true
   $('#ctl').style.visibility = ''
@@ -985,8 +1026,8 @@ function updateHud() {
   const el = $('#hClock'); if (el.textContent !== s) el.textContent = s
   const n = String(Math.min(D.DAY.length, S.ci + 1)); if ($('#hCust').textContent !== n) $('#hCust').textContent = n
   const ready = !!CUR && CUR.st === 'ready' && !S.giving
-  $('#bOffer').classList.toggle('on', S.want === 1); $('#bPull').classList.toggle('on', S.want === 0 && ready && S.ext < 0.05)
-  $('#bGive').disabled = !ready; $('#bOffer').disabled = !ready
+  $('#bGive').disabled = !ready
+  for (const b of document.querySelectorAll('.dk')) { b.disabled = !ready; b.classList.toggle('on', b.dataset.dir === S.spot && S.spot !== 'C') }
 }
 // ---------- 結果（給料明細）
 function calcResult() {
@@ -1058,16 +1099,18 @@ function closeMore() { if ($('#moreBox').hidden) return; $('#moreBox').hidden = 
 
 // ---------- 入力（ボタンは押した瞬間に効く。押しっぱなしは無い）
 function padDown(id, fn) { $(id).addEventListener('pointerdown', e => { e.preventDefault(); Snd.init(); fn() }) }
-padDown('#bOffer', offer); padDown('#bPull', pull); padDown('#bGive', give)
-// 画面（3D）をタップしても 差し出す⇔引っ込める
-canvas.addEventListener('pointerdown', e => { if (S.mode === 'play') { e.preventDefault(); Snd.init(); toggle() } })
+padDown('#bGive', give)
+for (const b of document.querySelectorAll('.dk')) padDown('#' + b.id, () => move(b.dataset.dir))
+// 3D画面をスワイプしても動かせる（上下左右）
+let swipe = null
+canvas.addEventListener('pointerdown', e => { if (S.mode === 'play') { swipe = { x: e.clientX, y: e.clientY }; Snd.init() } })
+addEventListener('pointerup', e => { if (!swipe) return; const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y; swipe = null; if (Math.hypot(dx, dy) < 24) return; move(Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'L' : 'R') : (dy < 0 ? 'U' : 'D')) })
+const KEYDIR = { ArrowUp: 'U', w: 'U', W: 'U', ArrowDown: 'D', s: 'D', S: 'D', ArrowLeft: 'L', a: 'L', A: 'L', ArrowRight: 'R', d: 'R', D: 'R', c: 'C', C: 'C' }
 addEventListener('keydown', e => {
   if (S.mode !== 'play') { if ((e.key === 'Enter' || e.key === ' ') && S.mode === 'title' && document.activeElement === document.body) { e.preventDefault(); startRun() } return }
   if (e.repeat) return
-  const k = e.key
-  if (k === 'ArrowUp' || k === 'w' || k === 'W' || k === 'ArrowRight' || k === 'd' || k === 'D') { offer(); e.preventDefault() }
-  else if (k === 'ArrowDown' || k === 's' || k === 'S' || k === 'ArrowLeft' || k === 'a' || k === 'A') { pull(); e.preventDefault() }
-  else if (k === ' ' || k === 'Enter') { give(); e.preventDefault() }
+  if (KEYDIR[e.key]) { move(KEYDIR[e.key]); e.preventDefault() }
+  else if (e.key === ' ' || e.key === 'Enter') { give(); e.preventDefault() }
 })
 
 // ---------- ループ（固定60Hz）
@@ -1124,17 +1167,22 @@ window.TI = {
     tick(n = 1) { for (let i = 0; i < n; i++) step() },
     start(seed) { S.dbgPause = false; startRun(seed) },
     set(o) { Object.assign(S, o) },
-    offer, pull, give, toggle,
+    move, give,
     // 今の客まで飛ばす（並んでいる客を入れ替える）
     skipTo(i) {
-      clearPeople(); clearHandCones(); TIMERS.length = 0; S.ci = i; S.coneOn = true; S.want = 0; S.ext = 0
+      clearPeople(); clearHandCones(); TIMERS.length = 0; S.ci = i; S.coneOn = true; S.spot = 'C'; S.spotT = 1; S.lastStolen = false
       fillLine(); placeLine(true); nextCustomer(); if (CUR) { CUR.c.g.position.set(CUR.tx, 0, CUR.tz); placeLine(true) }
       for (let k = 0; k < 3; k++) step()
     },
     ready() { return !!CUR && CUR.st === 'ready' },
-    resolve() { let n = 0; while (CUR && (CUR.ph === 'wind' || CUR.ph === 'lunge' || CUR.ph === 'wait') && n++ < 400) step() },
-    cust() { const c = CUR; return c ? { i: c.i, k: c.k, st: c.st, ph: c.ph, pt: +c.pt.toFixed(2), teases: c.teases, left: c.left, pat: c.pat, idles: c.idles, tip: c.tip, done: c.done || null, emo: c.c.emoK || null, line: c.lastLine } : null },
-    reachNow() { if (CUR) { CUR.ph = 'wind'; CUR.pt = CUR.pdur = CUR.def.wind * speedK(); CUR.pulled = null; Snd.sfx('wind') } },
+    resolve() { let n = 0; while (CUR && (CUR.ph === 'wind' || CUR.ph === 'lunge' || CUR.ph === 'wait') && n++ < 600) step() },
+    toLunge() { let n = 0; while (CUR && CUR.st === 'ready' && CUR.ph !== 'lunge' && n++ < 600) step() },
+    free() { return SPOT_N.filter(x => CUR && !CUR.aim.includes(x)) },
+    // 狙われていない場所へ1回で行ける方向
+    dodgeDir() { const free = this.free(); for (const d of ['U', 'L', 'R', 'D', 'C']) { const to = d === 'C' ? 'C' : S.spot === OPP[d] ? 'C' : d; if (to !== S.spot && free.includes(to)) return d } return null },
+    dodge(close) { this.toLunge(); if (!CUR || CUR.ph !== 'lunge') return false; if (close) { for (let i = 0; i < Math.round(CUR.pdur * 60 * 0.65); i++) step() } this.move(this.dodgeDir()); this.resolve(); for (let i = 0; i < 30; i++) step(); return true },
+    cust() { const c = CUR; return c ? { i: c.i, k: c.k, st: c.st, ph: c.ph, pt: +c.pt.toFixed(2), aim: c.aim.slice(), spot: S.spot, irk: c.irk, teases: c.teases, left: c.left, pat: c.pat, idles: c.idles, tip: c.tip, done: c.done || null, emo: c.c.emoK || null, line: c.lastLine } : null },
+    reachNow() { if (CUR) { CUR.ph = 'wind'; CUR.pt = CUR.pdur = CUR.def.wind * speedK(); CUR.aim = pickAim(CUR); Snd.sfx('wind') } },
     end() { endShift() },
     toResult() { toResult() },
     reveal() { finishReveal() },
@@ -1142,7 +1190,7 @@ window.TI = {
     snap() { camInit = false; frameCamera(1); updateScene(0); frameCamera(1) },
   },
   state() {
-    return { mode: S.mode, ci: S.ci, ext: +S.ext.toFixed(2), want: S.want, money: { ...S.money }, closed: S.closed, incident: S.incident, cust: this.dbg.cust(), result: S.result ? { net: S.result.net, stamp: S.result.rank.st.ja } : null }
+    return { mode: S.mode, ci: S.ci, spot: S.spot, money: { ...S.money }, closed: S.closed, incident: S.incident, cust: this.dbg.cust(), result: S.result ? { net: S.result.net, stamp: S.result.rank.st.ja } : null }
   },
 }
 window.__tiReady = true
